@@ -1,0 +1,20 @@
+# Dependabot configuration file
+version: 2
+updates:
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    # Look for GitHub Actions workflow files in the `.github/workflows` directory
+    directory: "/"
+    # Check for updates once a week (on Monday)
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    # Limit the number of open pull requests for GitHub Actions dependencies
+    open-pull-requests-limit: 10
+    # Assign pull requests to repository owners
+    assignees:
+      - "tzok"
+    # Add labels to pull requests
+    labels:
+      - "dependencies"
+      - "github-actions"
