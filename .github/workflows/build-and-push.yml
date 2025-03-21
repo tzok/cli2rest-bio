@@ -1,0 +1,73 @@
+name: Build and Push CLI2REST Reduce Container
+
+on:
+  schedule:
+    # Check for updates daily at midnight
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  check-for-updates:
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+    steps:
+      - name: Check for changes in rlabduke/reduce master branch
+        id: check
+        run: |
+          # Get the latest commit hash from rlabduke/reduce master branch
+          LATEST_COMMIT=$(curl -s https://api.github.com/repos/rlabduke/reduce/commits/master | jq -r .sha)
+          
+          # Create a marker file if it doesn't exist
+          if [ ! -f .last_commit ]; then
+            echo "First run, will build image"
+            echo $LATEST_COMMIT > .last_commit
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Read the last processed commit
+          LAST_PROCESSED_COMMIT=$(cat .last_commit)
+          
+          # Compare commits
+          if [ "$LATEST_COMMIT" != "$LAST_PROCESSED_COMMIT" ]; then
+            echo "New commits detected, will build image"
+            echo $LATEST_COMMIT > .last_commit
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "No new commits, skipping build"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-push:
+    needs: check-for-updates
+    if: ${{ needs.check-for-updates.outputs.has_changes == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./reduce
+          push: true
+          tags: |
+            ghcr.io/tzok/cli2rest-reduce:latest
+            ghcr.io/tzok/cli2rest-reduce:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
