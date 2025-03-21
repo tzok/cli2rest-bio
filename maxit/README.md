@@ -11,7 +11,7 @@ MAXIT is a program developed by the RCSB PDB for manipulating and validating PDB
 To build the container, run:
 
 ```bash
-docker build -t cli2-rest-maxit .
+docker build -t cli2rest-maxit .
 ```
 
 ## Running the Container
@@ -19,7 +19,7 @@ docker build -t cli2-rest-maxit .
 To start the container and expose the CLI2REST API on port 8000:
 
 ```bash
-docker run -p 8000:8000 cli2-rest-maxit
+docker run -p 8000:8000 cli2rest-maxit
 ```
 
 ## Using the CLI2REST API
