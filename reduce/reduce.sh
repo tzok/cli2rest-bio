@@ -5,17 +5,17 @@ set -e
 
 # Check if a PDB file was provided
 if [ $# -lt 1 ]; then
-  echo "Usage: $0 <pdb_file>"
-  echo "Example: $0 protein.pdb"
-  exit 1
+	echo "Usage: $0 <pdb_file>"
+	echo "Example: $0 protein.pdb"
+	exit 1
 fi
 
 # Get the absolute path of the input file
 INPUT_FILE=$(realpath "$1")
 
 if [ ! -f "$INPUT_FILE" ]; then
-  echo "Error: File '$1' not found"
-  exit 1
+	echo "Error: File '$1' not found"
+	exit 1
 fi
 
 # Generate a unique container name
@@ -34,19 +34,30 @@ done
 echo " Ready!"
 
 echo "Processing PDB file: $INPUT_FILE"
-# Use jq to create the JSON payload and send it to the API
-RESPONSE=$(jq -n --arg pdb "$(cat "$INPUT_FILE")" '{
-  cli_tool: "reduce",
-  arguments: ["input.pdb"],
-  files: [
+# Create a temporary file for the JSON payload
+TEMP_JSON=$(mktemp)
+
+# Create the JSON payload using a different approach to handle large files
+cat > "$TEMP_JSON" << EOF
+{
+  "cli_tool": "reduce",
+  "arguments": ["input.pdb"],
+  "files": [
     {
-      relative_path: "input.pdb",
-      content: $pdb
+      "relative_path": "input.pdb",
+      "content": "$(cat "$INPUT_FILE" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')"
     }
   ]
-}' | curl -s -X POST http://localhost:8000/run-command \
-     -H "Content-Type: application/json" \
-     -d @-)
+}
+EOF
+
+# Send the request using the temporary file
+RESPONSE=$(curl -s -X POST http://localhost:8000/run-command \
+  -H "Content-Type: application/json" \
+  -d @"$TEMP_JSON")
+
+# Remove the temporary file
+rm "$TEMP_JSON"
 
 # Extract and display only stdout from the response
 echo "Results:"
@@ -54,7 +65,7 @@ echo "$RESPONSE" | jq -r '.stdout'
 
 # Clean up - stop and remove the container
 echo "Cleaning up..."
-docker stop "$CONTAINER_NAME" > /dev/null
-docker rm "$CONTAINER_NAME" > /dev/null
+docker stop "$CONTAINER_NAME" >/dev/null
+docker rm "$CONTAINER_NAME" >/dev/null
 
 echo "Done!"
