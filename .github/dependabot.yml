@@ -18,3 +18,16 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    # Auto-merge non-major updates
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    # Configure auto-merge for non-major updates
+    auto-merge:
+      # Only merge if the PR has been approved or if only dependency updates
+      auto-approve: true
+      # Only merge patch and minor version updates, not major
+      allowed-update-types:
+        - "minor"
+        - "patch"
