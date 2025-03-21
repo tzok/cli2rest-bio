@@ -11,7 +11,7 @@ Reduce is a program for adding hydrogens to a Protein Data Bank (PDB) molecular 
 To build the container, run:
 
 ```bash
-docker build -t cli2-rest-reduce .
+docker build -t cli2rest-reduce .
 ```
 
 ## Running the Container
@@ -19,7 +19,7 @@ docker build -t cli2-rest-reduce .
 To start the container and expose the CLI2REST API on port 8000:
 
 ```bash
-docker run -p 8000:8000 cli2-rest-reduce
+docker run -p 8000:8000 cli2rest-reduce
 ```
 
 ## Using the CLI2REST API
@@ -67,6 +67,7 @@ jq -n --arg pdb "$(cat your_structure.pdb)" '{
 ### Response
 
 The API will return a JSON response with:
+
 - The exit code of the command
 - Standard output
 - Standard error
