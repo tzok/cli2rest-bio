@@ -23,7 +23,7 @@ for dir in */; do
 	# Enter directory and build the image
 	(
 		cd "$dir"
-		docker build -t "cli2rest-$dir" .
+		docker build -t "ghcr.io/tzok/cli2rest-$dir" .
 	)
 
 	echo "Successfully built cli2rest-$dir image"
