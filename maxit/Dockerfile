@@ -7,11 +7,13 @@ ENV MAXIT_VERSION=11.300
 # Install necessary build dependencies
 RUN apt-get update -y \
  && apt-get install -y \
+      bison \
       build-essential \
-      wget \
-      make \
-      gcc \
+      flex \
       g++ \
+      gcc \
+      make \
+      wget \
  && rm -rf /var/lib/apt/lists/*
 
 # Download and extract MAXIT
@@ -23,8 +25,8 @@ RUN wget https://sw-tools.rcsb.org/apps/MAXIT/maxit-v${MAXIT_VERSION}-prod-src.t
 ENV RCSBROOT=/maxit-v${MAXIT_VERSION}-prod-src
 
 # Build MAXIT
-WORKDIR ${RCSBROOT}
-RUN make \
+RUN cd ${RCSBROOT} \
+ && make \
  && make binary
 
 # Make sure the installed binary is in the PATH
