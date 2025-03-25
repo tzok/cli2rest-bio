@@ -9,6 +9,38 @@ import argparse
 from fr3d.classifiers.NA_pairwise_interactions import generatePairwiseAnnotation
 
 
+def parse_fr3d_output(file_path):
+    """
+    Parse FR3D output file with tab-separated values into a structured format.
+    
+    Each line contains: unit id 5', classification, unit id 3', number of overlapping pairs
+    """
+    data = []
+    with open(file_path, "rt") as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if not line or line.startswith('#'):
+                continue
+                
+            # Split by tabs
+            parts = line.split('\t')
+            if len(parts) >= 4:  # Ensure we have at least 4 columns
+                entry = {
+                    "unit_id_5prime": parts[0],
+                    "classification": parts[1],
+                    "unit_id_3prime": parts[2],
+                    "overlapping_pairs": int(parts[3]) if parts[3].isdigit() else parts[3]
+                }
+                # Add any additional columns if present
+                for i, value in enumerate(parts[4:], 4):
+                    entry[f"column_{i}"] = value
+                    
+                data.append(entry)
+    
+    return data
+
+
 def process_cif(cif_path):
     # Get the directory containing the input file
     input_dir = os.path.dirname(cif_path)
@@ -28,17 +60,20 @@ def process_cif(cif_path):
             "txt",
         )
 
-        # Read the results
+        # Parse the results
         results = {}
 
-        with open(os.path.join(tmpdir, f"{base_name}_basepair_detail.txt"), "rt") as f:
-            results["basepair"] = f.read()
-
-        with open(os.path.join(tmpdir, f"{base_name}_stacking.txt"), "rt") as f:
-            results["stacking"] = f.read()
-
-        with open(os.path.join(tmpdir, f"{base_name}_backbone.txt"), "rt") as f:
-            results["backbone"] = f.read()
+        # Parse basepair details
+        basepair_file = os.path.join(tmpdir, f"{base_name}_basepair_detail.txt")
+        results["basepair"] = parse_fr3d_output(basepair_file)
+        
+        # Parse stacking interactions
+        stacking_file = os.path.join(tmpdir, f"{base_name}_stacking.txt")
+        results["stacking"] = parse_fr3d_output(stacking_file)
+        
+        # Parse backbone conformations
+        backbone_file = os.path.join(tmpdir, f"{base_name}_backbone.txt")
+        results["backbone"] = parse_fr3d_output(backbone_file)
 
         return results
 
