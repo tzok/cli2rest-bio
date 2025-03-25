@@ -5,17 +5,17 @@ set -e
 
 # Check if a CIF file was provided
 if [ $# -lt 1 ]; then
-  echo "Usage: $0 <cif_file>" >&2
-  echo "Example: $0 your_rna.cif" >&2
-  exit 1
+	echo "Usage: $0 <cif_file>" >&2
+	echo "Example: $0 your_rna.cif" >&2
+	exit 1
 fi
 
 # Get the absolute path of the input file
 INPUT_FILE=$(realpath "$1")
 
 if [ ! -f "$INPUT_FILE" ]; then
-  echo "Error: File '$1' not found" >&2
-  exit 1
+	echo "Error: File '$1' not found" >&2
+	exit 1
 fi
 
 # Generate a unique container name
@@ -32,8 +32,8 @@ echo "Container running on port: $PORT" >&2
 # Wait for the container to be ready
 echo "Waiting for service to be ready..." >&2
 until $(curl --output /dev/null --silent --fail http://localhost:$PORT/health); do
-  printf '.' >&2
-  sleep 1
+	printf '.' >&2
+	sleep 1
 done
 echo " Ready!" >&2
 
@@ -44,10 +44,10 @@ echo "Converting CIF to PDB format" >&2
 TEMP_JSON=$(mktemp)
 
 # Create the JSON payload using a different approach to handle large files
-cat > "$TEMP_JSON" << EOF
+cat >"$TEMP_JSON" <<EOF
 {
   "cli_tool": "maxit",
-  "arguments": ["-input", "input.cif", "-output", "output.pdb", "-o", "2"],
+  "arguments": ["-input", "input.cif", "-output", "/dev/stdout", "-o", "2"],
   "files": [
     {
       "relative_path": "input.cif",
@@ -59,14 +59,14 @@ EOF
 
 # Send the request using the temporary file
 RESPONSE=$(curl -s -X POST http://localhost:$PORT/run-command \
-  -H "Content-Type: application/json" \
-  -d @"$TEMP_JSON")
+	-H "Content-Type: application/json" \
+	-d @"$TEMP_JSON")
 
 # Remove the temporary file
 rm "$TEMP_JSON"
 
 # Extract and display the output file content
-echo "$RESPONSE" | jq -r '.files[] | select(.relative_path == "output.pdb") | .content'
+echo "$RESPONSE" | jq -r '.stdout'
 
 # Clean up - stop and remove the container
 echo "Cleaning up..." >&2
