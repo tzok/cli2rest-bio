@@ -31,3 +31,4 @@ for dir in */; do
 done
 
 echo "All images built successfully!"
+echo "Available images: cli2rest-reduce, cli2rest-maxit, cli2rest-fr3d"

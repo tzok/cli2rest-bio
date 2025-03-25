@@ -8,6 +8,7 @@ Currently, the following tools are available:
 
 - [Reduce](./reduce/): A tool for adding hydrogens to RNA structures in PDB format
 - [MaxiT](./maxit/): A tool for RNA structure format conversion and validation
+- [FR3D](./fr3d/): A tool for RNA structure annotation and classification
 
 ## How It Works
 
@@ -38,6 +39,9 @@ Each tool comes with a convenience script that simplifies usage:
 ./maxit/maxit-pdb2cif.sh your_rna.pdb > your_rna.cif
 ./maxit/maxit-cif2pdb.sh your_rna.cif > your_rna.pdb
 ./maxit/maxit-cif2mmcif.sh your_rna.cif > your_rna_mmcif.cif
+
+# For FR3D RNA structure annotation
+./fr3d/fr3d.sh your_rna.cif > your_rna_annotations.json
 ```
 
 ### Using the REST API Directly
@@ -73,6 +77,9 @@ docker pull ghcr.io/tzok/cli2rest-reduce:latest
 
 # Pull the MaxiT container
 docker pull ghcr.io/tzok/cli2rest-maxit:latest
+
+# Pull the FR3D container
+docker pull ghcr.io/tzok/cli2rest-fr3d:latest
 ```
 
 These images are automatically built and updated with the latest changes.
@@ -89,6 +96,10 @@ docker build -t cli2rest-reduce .
 # Build MaxiT container
 cd maxit
 docker build -t cli2rest-maxit .
+
+# Build FR3D container
+cd fr3d
+docker build -t cli2rest-fr3d .
 ```
 
 ## Requirements
