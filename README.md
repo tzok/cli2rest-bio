@@ -63,9 +63,23 @@ curl -X POST http://localhost:8000/run-command \
   }'
 ```
 
+## Pre-built Container Images
+
+Pre-built container images are available on GitHub Container Registry:
+
+```bash
+# Pull the Reduce container
+docker pull ghcr.io/tzok/cli2rest-reduce:latest
+
+# Pull the MaxiT container
+docker pull ghcr.io/tzok/cli2rest-maxit:latest
+```
+
+These images are automatically built and updated with the latest changes.
+
 ## Building from Source
 
-Each tool has its own Dockerfile in its respective directory:
+If you prefer to build the containers yourself, each tool has its own Dockerfile in its respective directory:
 
 ```bash
 # Build Reduce container
