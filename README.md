@@ -33,16 +33,28 @@ Each tool comes with a convenience script that simplifies usage:
 
 ```bash
 # For Reduce (adding hydrogens to RNA structures)
-./reduce/reduce.sh your_rna.pdb > your_rna_with_hydrogens.pdb
+./reduce/reduce.sh your_rna.pdb                # Process a single file
+./reduce/reduce.sh /path/to/pdb/files/         # Process all PDB files in a directory
 
 # For MaxiT format conversions
-./maxit/maxit-pdb2cif.sh your_rna.pdb > your_rna.cif
-./maxit/maxit-cif2pdb.sh your_rna.cif > your_rna.pdb
-./maxit/maxit-cif2mmcif.sh your_rna.cif > your_rna_mmcif.cif
+./maxit/maxit-pdb2cif.sh your_rna.pdb          # Process a single file
+./maxit/maxit-pdb2cif.sh /path/to/pdb/files/   # Process all PDB files in a directory
+
+./maxit/maxit-cif2pdb.sh your_rna.cif          # Process a single file
+./maxit/maxit-cif2pdb.sh /path/to/cif/files/   # Process all CIF files in a directory
+
+./maxit/maxit-cif2mmcif.sh your_rna.cif        # Process a single file
+./maxit/maxit-cif2mmcif.sh /path/to/cif/files/ # Process all CIF files in a directory
 
 # For FR3D RNA structure annotation
-./fr3d/fr3d.sh your_rna.cif > your_rna_annotations.json
+./fr3d/fr3d.sh your_rna.cif                    # Process a single file
+./fr3d/fr3d.sh /path/to/cif/files/             # Process all CIF files in a directory
 ```
+
+When processing a single file, the output will be saved to a file with the same base name but a different extension. For example:
+- `input.cif` → `input.pdb` (when using maxit-cif2pdb.sh)
+- `input.pdb` → `input.cif` (when using maxit-pdb2cif.sh)
+- `input.cif` → `input.mmcif` (when using maxit-cif2mmcif.sh)
 
 ### Using the REST API Directly
 
