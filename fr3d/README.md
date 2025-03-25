@@ -19,14 +19,20 @@ The tool is particularly useful for RNA structure analysis, comparison, and clas
 The simplest way to use this container is with the provided convenience script:
 
 ```bash
-./fr3d.sh your_rna.cif > your_rna_annotations.json
+# Process a single file
+./fr3d.sh your_rna.cif
+
+# Process all CIF files in a directory
+./fr3d.sh /path/to/cif/files/
 ```
 
 This will:
 1. Start a container with FR3D
-2. Process your CIF file
-3. Return the annotations as JSON
+2. Process your CIF file(s) in parallel when processing a directory
+3. Save the annotations as JSON files (e.g., your_rna-fr3d.json)
 4. Clean up the container
+
+The script uses GNU parallel to process multiple files simultaneously when a directory is provided, which significantly speeds up processing when dealing with many files.
 
 ### Using the REST API Directly
 

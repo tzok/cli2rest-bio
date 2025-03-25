@@ -48,7 +48,7 @@ Each tool comes with a convenience script that simplifies usage:
 
 # For FR3D RNA structure annotation
 ./fr3d/fr3d.sh your_rna.cif                    # Process a single file
-./fr3d/fr3d.sh /path/to/cif/files/             # Process all CIF files in a directory
+./fr3d/fr3d.sh /path/to/cif/files/             # Process all CIF files in a directory (in parallel)
 ```
 
 When processing a single file, the output will be saved to a file with the same base name but a different extension. For example:
