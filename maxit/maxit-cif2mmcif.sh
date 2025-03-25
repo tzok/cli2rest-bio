@@ -55,8 +55,11 @@ until $(curl --output /dev/null --silent --fail http://localhost:$PORT/health); 
 done
 echo " Ready!" >&2
 
-# Process each file
-for INPUT_FILE in "${INPUT_FILES[@]}"; do
+# Define a function to process a single file
+process_file() {
+	local INPUT_FILE="$1"
+	local PORT="$2"
+	
 	echo "Processing CIF file: $INPUT_FILE" >&2
 	echo "Converting CIF to mmCIF format" >&2
 	
@@ -92,7 +95,14 @@ EOF
 	# Extract the output and save to file
 	echo "$RESPONSE" | jq -r '.stdout' > "$OUTPUT_FILE"
 	echo "Saved output to: $OUTPUT_FILE" >&2
-done
+}
+
+# Export the function so GNU parallel can use it
+export -f process_file
+
+# Process files in parallel
+echo "Processing ${#INPUT_FILES[@]} files in parallel..." >&2
+parallel -j $(nproc) process_file {} $PORT ::: "${INPUT_FILES[@]}"
 
 # Clean up - stop and remove the container
 echo "Cleaning up..." >&2

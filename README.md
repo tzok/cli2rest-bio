@@ -56,6 +56,8 @@ When processing a single file, the output will be saved to a file with the same 
 - `input.pdb` → `input.cif` (when using maxit-pdb2cif.sh)
 - `input.cif` → `input.mmcif` (when using maxit-cif2mmcif.sh)
 
+When processing multiple files in a directory, the scripts use GNU parallel to process files in parallel, which significantly speeds up the operation when dealing with many files.
+
 ### Using the REST API Directly
 
 You can also interact with the API directly:

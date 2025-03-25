@@ -24,7 +24,9 @@ docker run -p 8000:8000 cli2rest-maxit
 
 ## Using the CLI2REST API
 
-The CLI2REST API allows you to run the MAXIT tool via HTTP requests. Here's how to use it:
+The CLI2REST API allows you to run the MAXIT tool via HTTP requests. The convenience scripts now support parallel processing of multiple files using GNU parallel, which significantly improves performance when processing directories with many files.
+
+Here's how to use the API directly:
 
 ### Example: Converting a PDB file to mmCIF
 
