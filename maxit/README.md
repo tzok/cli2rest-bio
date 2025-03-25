@@ -35,11 +35,11 @@ curl -X POST http://localhost:8000/run-command \
   -H "Content-Type: application/json" \
   -d '{
     "cli_tool": "maxit",
-    "arguments": ["-input", "input.pdb", "-output", "output.cif", "-o"],
+    "arguments": ["-input", "input.pdb", "-output", "/dev/stdout", "-o", "1"],
     "files": [
       {
         "relative_path": "input.pdb",
-        "content": "ATOM      1  N   ALA A   1      11.104   6.134  -6.504  1.00  0.00           N  \nATOM      2  CA  ALA A   1      11.639   6.071  -5.147  1.00  0.00           C  \nATOM      3  C   ALA A   1      10.674   5.323  -4.252  1.00  0.00           C  \nATOM      4  O   ALA A   1       9.705   4.695  -4.708  1.00  0.00           O  \nATOM      5  CB  ALA A   1      11.888   7.456  -4.570  1.00  0.00           C  \nEND"
+        "content": "ATOM      1  P     G A   1      -0.521   9.276   5.352  1.00  0.00           P  \nATOM      2  OP1   G A   1      -0.880   9.088   6.785  1.00  0.00           O  \nATOM      3  OP2   G A   1      -1.154  10.349   4.548  1.00  0.00           O  \nATOM      4  O5\'   G A   1       1.056   9.358   5.199  1.00  0.00           O  \nATOM      5  C5\'   G A   1       1.849   8.189   5.386  1.00  0.00           C  \nEND"
       }
     ]
   }'
@@ -50,9 +50,9 @@ curl -X POST http://localhost:8000/run-command \
 If you have a PDB file locally, you can use jq to build the request:
 
 ```bash
-jq -n --arg pdb "$(cat your_structure.pdb)" '{
+jq -n --arg pdb "$(cat your_rna.pdb)" '{
   cli_tool: "maxit",
-  arguments: ["-input", "input.pdb", "-output", "output.cif", "-o"],
+  arguments: ["-input", "input.pdb", "-output", "/dev/stdout", "-o", "1"],
   files: [
     {
       relative_path: "input.pdb",
@@ -69,7 +69,7 @@ jq -n --arg pdb "$(cat your_structure.pdb)" '{
 The API will return a JSON response with:
 
 - The exit code of the command
-- Standard output
+- Standard output (containing the converted file content)
 - Standard error
 - Generated files (if any)
 
@@ -78,16 +78,13 @@ Example response:
 ```json
 {
   "exit_code": 0,
-  "stdout": "...",
+  "stdout": "data_RNA\n#\n_entry.id RNA\n...",
   "stderr": "...",
-  "files": [
-    {
-      "relative_path": "output.cif",
-      "content": "..."
-    }
-  ]
+  "files": []
 }
 ```
+
+When using `/dev/stdout` as the output file, the converted content will be in the `stdout` field rather than in the `files` array. This is how our convenience scripts are designed to work.
 
 ## Common MAXIT Options
 
@@ -95,8 +92,9 @@ MAXIT supports various command-line options:
 
 - `-input <file>`: Input file name
 - `-output <file>`: Output file name
-- `-o`: Convert PDB to mmCIF
-- `-i`: Convert mmCIF to PDB
+- `-o 1`: Convert PDB to CIF
+- `-o 2`: Convert CIF to PDB
+- `-o 8`: Convert CIF to mmCIF
 - `-report`: Generate validation report
 - `-dict <file>`: Use specified dictionary
 
