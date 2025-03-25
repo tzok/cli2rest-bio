@@ -5,8 +5,8 @@ set -e
 
 # Check if a PDB file was provided
 if [ $# -lt 1 ]; then
-	echo "Usage: $0 <pdb_file>"
-	echo "Example: $0 protein.pdb"
+	echo "Usage: $0 <pdb_file>" >&2
+	echo "Example: $0 protein.pdb" >&2
 	exit 1
 fi
 
@@ -14,30 +14,30 @@ fi
 INPUT_FILE=$(realpath "$1")
 
 if [ ! -f "$INPUT_FILE" ]; then
-	echo "Error: File '$1' not found"
+	echo "Error: File '$1' not found" >&2
 	exit 1
 fi
 
 # Generate a unique container name
 CONTAINER_NAME="reduce-$(date +%s)"
 
-echo "Starting Reduce container..."
+echo "Starting Reduce container..." >&2
 # Start the container in the background with a random port
-docker run -d --name "$CONTAINER_NAME" -P ghcr.io/tzok/cli2rest-reduce:latest
+docker run -d --name "$CONTAINER_NAME" -P ghcr.io/tzok/cli2rest-reduce:latest >&2
 
 # Get the port that Docker assigned
 PORT=$(docker port "$CONTAINER_NAME" 8000/tcp | cut -d ':' -f 2)
-echo "Container running on port: $PORT"
+echo "Container running on port: $PORT" >&2
 
 # Wait for the container to be ready
-echo "Waiting for service to be ready..."
+echo "Waiting for service to be ready..." >&2
 until $(curl --output /dev/null --silent --fail http://localhost:$PORT/health); do
-  printf '.'
+  printf '.' >&2
   sleep 1
 done
-echo " Ready!"
+echo " Ready!" >&2
 
-echo "Processing PDB file: $INPUT_FILE"
+echo "Processing PDB file: $INPUT_FILE" >&2
 # Create a temporary file for the JSON payload
 TEMP_JSON=$(mktemp)
 
@@ -64,12 +64,12 @@ RESPONSE=$(curl -s -X POST http://localhost:$PORT/run-command \
 rm "$TEMP_JSON"
 
 # Extract and display only stdout from the response
-echo "Results:"
+echo "Results:" >&2
 echo "$RESPONSE" | jq -r '.stdout'
 
 # Clean up - stop and remove the container
-echo "Cleaning up..."
+echo "Cleaning up..." >&2
 docker stop "$CONTAINER_NAME" >/dev/null
 docker rm "$CONTAINER_NAME" >/dev/null
 
-echo "Done!"
+echo "Done!" >&2
