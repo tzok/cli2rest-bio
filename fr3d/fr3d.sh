@@ -60,11 +60,17 @@ process_file() {
   local INPUT_FILE="$1"
   local PORT="$2"
   
-  echo "Processing CIF file: $INPUT_FILE" >&2
-  
   # Get the base filename without extension
   FILENAME=$(basename "$INPUT_FILE" .cif)
   OUTPUT_FILE="${INPUT_FILE%.*}-fr3d.json"
+  
+  # Skip if output file already exists
+  if [ -f "$OUTPUT_FILE" ]; then
+    echo "Skipping $INPUT_FILE - output file already exists" >&2
+    return 0
+  fi
+  
+  echo "Processing CIF file: $INPUT_FILE" >&2
   
   # Create a temporary file for the JSON payload
   TEMP_JSON=$(mktemp)
