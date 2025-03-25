@@ -34,8 +34,10 @@ Each tool comes with a convenience script that simplifies usage:
 # For Reduce (adding hydrogens to RNA structures)
 ./reduce/reduce.sh your_rna.pdb > your_rna_with_hydrogens.pdb
 
-# For MaxiT (if available)
-./maxit/maxit.sh your_rna.pdb > converted_rna.cif
+# For MaxiT format conversions
+./maxit/maxit-pdb2cif.sh your_rna.pdb > your_rna.cif
+./maxit/maxit-cif2pdb.sh your_rna.cif > your_rna.pdb
+./maxit/maxit-cif2mmcif.sh your_rna.cif > your_rna_mmcif.cif
 ```
 
 ### Using the REST API Directly
