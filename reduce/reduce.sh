@@ -22,12 +22,16 @@ fi
 CONTAINER_NAME="reduce-$(date +%s)"
 
 echo "Starting Reduce container..."
-# Start the container in the background
-docker run -d --name "$CONTAINER_NAME" -p 8000:8000 ghcr.io/tzok/cli2rest-reduce:latest
+# Start the container in the background with a random port
+docker run -d --name "$CONTAINER_NAME" -P ghcr.io/tzok/cli2rest-reduce:latest
+
+# Get the port that Docker assigned
+PORT=$(docker port "$CONTAINER_NAME" 8000/tcp | cut -d ':' -f 2)
+echo "Container running on port: $PORT"
 
 # Wait for the container to be ready
 echo "Waiting for service to be ready..."
-until $(curl --output /dev/null --silent --head --fail http://localhost:8000/health); do
+until $(curl --output /dev/null --silent --head --fail http://localhost:$PORT/health); do
   printf '.'
   sleep 1
 done
@@ -52,7 +56,7 @@ cat > "$TEMP_JSON" << EOF
 EOF
 
 # Send the request using the temporary file
-RESPONSE=$(curl -s -X POST http://localhost:8000/run-command \
+RESPONSE=$(curl -s -X POST http://localhost:$PORT/run-command \
   -H "Content-Type: application/json" \
   -d @"$TEMP_JSON")
 
