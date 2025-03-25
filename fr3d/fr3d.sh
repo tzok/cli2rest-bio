@@ -41,12 +41,20 @@ echo "Processing CIF file: $INPUT_FILE" >&2
 # Create a temporary file for the JSON payload
 TEMP_JSON=$(mktemp)
 
-# Create the JSON payload using a different approach to handle large files
+# Get the filename without path
+FILENAME=$(basename "$INPUT_FILE")
+
+# Create the JSON payload using files field instead of stdin
 cat > "$TEMP_JSON" << EOF
 {
   "cli_tool": "fr3d_runner.py",
-  "arguments": [],
-  "stdin": "$(cat "$INPUT_FILE" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')"
+  "arguments": ["input.cif"],
+  "files": [
+    {
+      "relative_path": "input.cif",
+      "content": "$(cat "$INPUT_FILE" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')"
+    }
+  ]
 }
 EOF
 
