@@ -31,7 +31,7 @@ echo "Container running on port: $PORT"
 
 # Wait for the container to be ready
 echo "Waiting for service to be ready..."
-until $(curl --output /dev/null --silent --head --fail http://localhost:$PORT/health); do
+until $(curl --output /dev/null --silent --fail http://localhost:$PORT/health); do
   printf '.'
   sleep 1
 done
