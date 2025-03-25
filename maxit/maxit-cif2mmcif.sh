@@ -24,8 +24,8 @@ if [ -f "$INPUT_PATH" ]; then
 	fi
 	INPUT_FILES=("$INPUT_PATH")
 elif [ -d "$INPUT_PATH" ]; then
-	# Directory mode - find all .cif files
-	INPUT_FILES=($(find "$INPUT_PATH" -name "*.cif" -type f))
+	# Directory mode - find all .cif files (including symbolic links)
+	INPUT_FILES=($(find "$INPUT_PATH" -name "*.cif"))
 	if [ ${#INPUT_FILES[@]} -eq 0 ]; then
 		echo "Error: No .cif files found in directory '$1'" >&2
 		exit 1

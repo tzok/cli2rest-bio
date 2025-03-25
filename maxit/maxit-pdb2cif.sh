@@ -24,8 +24,8 @@ if [ -f "$INPUT_PATH" ]; then
 	fi
 	INPUT_FILES=("$INPUT_PATH")
 elif [ -d "$INPUT_PATH" ]; then
-	# Directory mode - find all .pdb files
-	INPUT_FILES=($(find "$INPUT_PATH" -name "*.pdb" -type f))
+	# Directory mode - find all .pdb files (including symbolic links)
+	INPUT_FILES=($(find "$INPUT_PATH" -name "*.pdb"))
 	if [ ${#INPUT_FILES[@]} -eq 0 ]; then
 		echo "Error: No .pdb files found in directory '$1'" >&2
 		exit 1
