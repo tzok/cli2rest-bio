@@ -92,5 +92,5 @@ if __name__ == "__main__":
     # Process the CIF file
     results = process_cif(args.cif_file)
 
-    # Output the results as JSON
-    print(json.dumps(results, indent=2))
+    # Output the results as JSON (compact format)
+    print(json.dumps(results))
