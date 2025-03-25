@@ -6,6 +6,30 @@ This repository contains a Dockerfile for building a container with the [Reduce]
 
 Reduce is a program for adding hydrogens to a Protein Data Bank (PDB) molecular structure file. The program was developed by J. Michael Word at the Richardson Laboratory at Duke University.
 
+## Using the reduce.sh Script
+
+For convenience, this repository includes a `reduce.sh` script that simplifies the process of running Reduce on your PDB files:
+
+```bash
+./reduce.sh your_structure.pdb > your_structure_with_hydrogens.pdb
+```
+
+The script:
+1. Starts a Docker container with Reduce
+2. Automatically finds an available port
+3. Waits for the service to be ready
+4. Processes your PDB file
+5. Returns only the processed PDB content to stdout
+6. Cleans up the container when done
+
+All informational messages are sent to stderr, so you can easily redirect the output to a file or pipe it to another command.
+
+### Prerequisites
+
+- Docker installed and running
+- `jq` command-line tool for JSON processing
+- `curl` for making HTTP requests
+
 ## Building the Container
 
 To build the container, run:
@@ -99,5 +123,7 @@ Reduce supports various command-line options:
 - `-BUILD`: Add hydrogens (default)
 - `-HIS`: Change histidine name to HIS
 - `-ROTEXIST`: Rotate existing hydrogens
+
+> **Note:** The current `reduce.sh` script uses default options. To use specific Reduce options, you'll need to modify the script or use the CLI2REST API directly as shown in the examples below.
 
 For a complete list of options, see the [Reduce documentation](https://github.com/rlabduke/reduce).
