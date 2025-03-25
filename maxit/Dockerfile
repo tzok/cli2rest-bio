@@ -1,8 +1,8 @@
 # Start from the specified base image
 FROM ghcr.io/tzok/cli2rest:latest
 
-# Set MAXIT version from the latest version file
-ENV MAXIT_VERSION=11.300
+# Set default MAXIT version that can be overridden at build time
+ARG MAXIT_VERSION=11.300
 
 # Install necessary build dependencies
 RUN apt-get update -y \

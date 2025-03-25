@@ -61,13 +61,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get latest MAXIT version
+        id: maxit-version
+        run: |
+          LATEST_VERSION=$(curl -s https://sw-tools.rcsb.org/apps/MAXIT/maxit-latest-version.txt | tr -d '\n\r')
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "Latest MAXIT version: $LATEST_VERSION"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./maxit
           push: true
+          build-args: |
+            MAXIT_VERSION=${{ steps.maxit-version.outputs.version }}
           tags: |
             ghcr.io/tzok/cli2rest-maxit:latest
             ghcr.io/tzok/cli2rest-maxit:${{ github.sha }}
+            ghcr.io/tzok/cli2rest-maxit:${{ steps.maxit-version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
