@@ -6,8 +6,8 @@ This repository contains Docker containers for various bioinformatics tools wrap
 
 Currently, the following tools are available:
 
-- [Reduce](./reduce/): A tool for adding hydrogens to PDB files
-- [MaxiT](./maxit/): A tool for PDB file format conversion and validation
+- [Reduce](./reduce/): A tool for adding hydrogens to RNA structures in PDB format
+- [MaxiT](./maxit/): A tool for RNA structure format conversion and validation
 
 ## How It Works
 
@@ -31,11 +31,11 @@ Each tool is containerized with Docker and exposed through a REST API that follo
 Each tool comes with a convenience script that simplifies usage:
 
 ```bash
-# For Reduce (adding hydrogens to PDB files)
-./reduce/reduce.sh your_structure.pdb > your_structure_with_hydrogens.pdb
+# For Reduce (adding hydrogens to RNA structures)
+./reduce/reduce.sh your_rna.pdb > your_rna_with_hydrogens.pdb
 
 # For MaxiT (if available)
-./maxit/maxit.sh your_structure.pdb > converted_structure.cif
+./maxit/maxit.sh your_rna.pdb > converted_rna.cif
 ```
 
 ### Using the REST API Directly
@@ -55,7 +55,7 @@ curl -X POST http://localhost:8000/run-command \
     "files": [
       {
         "relative_path": "input.pdb",
-        "content": "ATOM      1  N   ALA A   1      11.104   6.134  -6.504  1.00  0.00           N  \n..."
+        "content": "ATOM      1  P     G A   1      -0.521   9.276   5.352  1.00  0.00           P  \n..."
       }
     ]
   }'

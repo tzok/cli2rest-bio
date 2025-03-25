@@ -4,14 +4,14 @@ This repository contains a Dockerfile for building a container with the [Reduce]
 
 ## What is Reduce?
 
-Reduce is a program for adding hydrogens to a Protein Data Bank (PDB) molecular structure file. The program was developed by J. Michael Word at the Richardson Laboratory at Duke University.
+Reduce is a program for adding hydrogens to RNA and other molecular structure files in PDB format. The program was developed by J. Michael Word at the Richardson Laboratory at Duke University.
 
 ## Using the reduce.sh Script
 
 For convenience, this repository includes a `reduce.sh` script that simplifies the process of running Reduce on your PDB files:
 
 ```bash
-./reduce.sh your_structure.pdb > your_structure_with_hydrogens.pdb
+./reduce.sh your_rna.pdb > your_rna_with_hydrogens.pdb
 ```
 
 The script:
@@ -50,7 +50,7 @@ docker run -p 8000:8000 cli2rest-reduce
 
 The CLI2REST API allows you to run the Reduce tool via HTTP requests. Here's how to use it:
 
-### Example: Adding hydrogens to a PDB file
+### Example: Adding hydrogens to an RNA structure
 
 You can use cURL to send a request to the API:
 
@@ -63,7 +63,7 @@ curl -X POST http://localhost:8000/run-command \
     "files": [
       {
         "relative_path": "input.pdb",
-        "content": "ATOM      1  N   ALA A   1      11.104   6.134  -6.504  1.00  0.00           N  \nATOM      2  CA  ALA A   1      11.639   6.071  -5.147  1.00  0.00           C  \nATOM      3  C   ALA A   1      10.674   5.323  -4.252  1.00  0.00           C  \nATOM      4  O   ALA A   1       9.705   4.695  -4.708  1.00  0.00           O  \nATOM      5  CB  ALA A   1      11.888   7.456  -4.570  1.00  0.00           C  \nEND"
+        "content": "ATOM      1  P     G A   1      -0.521   9.276   5.352  1.00  0.00           P  \nATOM      2  OP1   G A   1      -0.880   9.088   6.785  1.00  0.00           O  \nATOM      3  OP2   G A   1      -1.154  10.349   4.548  1.00  0.00           O  \nATOM      4  O5\'   G A   1       1.056   9.358   5.199  1.00  0.00           O  \nATOM      5  C5\'   G A   1       1.849   8.189   5.386  1.00  0.00           C  \nEND"
       }
     ]
   }'
@@ -74,7 +74,7 @@ curl -X POST http://localhost:8000/run-command \
 If you have a PDB file locally, you can use jq to build the request:
 
 ```bash
-jq -n --arg pdb "$(cat your_structure.pdb)" '{
+jq -n --arg pdb "$(cat your_rna.pdb)" '{
   cli_tool: "reduce",
   arguments: ["input.pdb"],
   files: [
