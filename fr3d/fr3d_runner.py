@@ -52,15 +52,28 @@ def process_cif(cif_path):
     tmpdir = tempfile.mkdtemp()
 
     try:
-        # Run FR3D analysis
-        generatePairwiseAnnotation(
-            base_name,
-            None,
-            input_dir,
-            tmpdir,
-            "basepair_detail,stacking,backbone",
-            "txt",
-        )
+        # Redirect stdout/stderr to devnull to silence output
+        original_stdout = sys.stdout
+        original_stderr = sys.stderr
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
+        
+        try:
+            # Run FR3D analysis silently
+            generatePairwiseAnnotation(
+                base_name,
+                None,
+                input_dir,
+                tmpdir,
+                "basepair_detail,stacking,backbone",
+                "txt",
+            )
+        finally:
+            # Restore stdout/stderr
+            sys.stdout.close()
+            sys.stderr.close()
+            sys.stdout = original_stdout
+            sys.stderr = original_stderr
 
         # Parse the results
         results = {}
