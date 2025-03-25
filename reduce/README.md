@@ -11,18 +11,22 @@ Reduce is a program for adding hydrogens to RNA and other molecular structure fi
 For convenience, this repository includes a `reduce.sh` script that simplifies the process of running Reduce on your PDB files:
 
 ```bash
-./reduce.sh your_rna.pdb > your_rna_with_hydrogens.pdb
+# Process a single file
+./reduce.sh your_rna.pdb
+
+# Process all PDB files in a directory
+./reduce.sh /path/to/pdb/files/
 ```
 
 The script:
 1. Starts a Docker container with Reduce
 2. Automatically finds an available port
 3. Waits for the service to be ready
-4. Processes your PDB file
-5. Returns only the processed PDB content to stdout
+4. Processes your PDB file(s) in parallel when processing a directory
+5. Saves the processed PDB content to files (e.g., your_rna-reduce.pdb)
 6. Cleans up the container when done
 
-All informational messages are sent to stderr, so you can easily redirect the output to a file or pipe it to another command.
+The script uses GNU parallel to process multiple files simultaneously when a directory is provided, which significantly speeds up processing when dealing with many files.
 
 ### Prerequisites
 

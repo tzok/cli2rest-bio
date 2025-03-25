@@ -3,18 +3,36 @@
 # Exit on error
 set -e
 
-# Check if a PDB file was provided
+# Check if a directory or file was provided
 if [ $# -lt 1 ]; then
-	echo "Usage: $0 <pdb_file>" >&2
-	echo "Example: $0 protein.pdb" >&2
+	echo "Usage: $0 <directory_or_pdb_file>" >&2
+	echo "Examples:" >&2
+	echo "  $0 protein.pdb" >&2
+	echo "  $0 /path/to/pdb/files/" >&2
 	exit 1
 fi
 
-# Get the absolute path of the input file
-INPUT_FILE=$(realpath "$1")
+# Get the absolute path of the input
+INPUT_PATH=$(realpath "$1")
 
-if [ ! -f "$INPUT_FILE" ]; then
-	echo "Error: File '$1' not found" >&2
+# Check if input is a file or directory
+if [ -f "$INPUT_PATH" ]; then
+	# Single file mode
+	if [[ "$INPUT_PATH" != *.pdb ]]; then
+		echo "Error: Input file must have .pdb extension" >&2
+		exit 1
+	fi
+	INPUT_FILES=("$INPUT_PATH")
+elif [ -d "$INPUT_PATH" ]; then
+	# Directory mode - find all .pdb files (including symbolic links)
+	INPUT_FILES=($(find "$INPUT_PATH" -name "*.pdb"))
+	if [ ${#INPUT_FILES[@]} -eq 0 ]; then
+		echo "Error: No .pdb files found in directory '$1'" >&2
+		exit 1
+	fi
+	echo "Found ${#INPUT_FILES[@]} .pdb files to process" >&2
+else
+	echo "Error: '$1' is not a valid file or directory" >&2
 	exit 1
 fi
 
@@ -37,12 +55,22 @@ until $(curl --output /dev/null --silent --fail http://localhost:$PORT/health); 
 done
 echo " Ready!" >&2
 
-echo "Processing PDB file: $INPUT_FILE" >&2
-# Create a temporary file for the JSON payload
-TEMP_JSON=$(mktemp)
-
-# Create the JSON payload using a different approach to handle large files
-cat > "$TEMP_JSON" << EOF
+# Define a function to process a single file
+process_file() {
+  local INPUT_FILE="$1"
+  local PORT="$2"
+  
+  echo "Processing PDB file: $INPUT_FILE" >&2
+  
+  # Get the base filename without extension
+  FILENAME=$(basename "$INPUT_FILE" .pdb)
+  OUTPUT_FILE="${INPUT_FILE%.*}-reduce.pdb"
+  
+  # Create a temporary file for the JSON payload
+  TEMP_JSON=$(mktemp)
+  
+  # Create the JSON payload using a different approach to handle large files
+  cat > "$TEMP_JSON" << EOF
 {
   "cli_tool": "reduce",
   "arguments": ["input.pdb"],
@@ -54,18 +82,31 @@ cat > "$TEMP_JSON" << EOF
   ]
 }
 EOF
+  
+  # Send the request using the temporary file
+  RESPONSE=$(curl -s -X POST http://localhost:$PORT/run-command \
+    -H "Content-Type: application/json" \
+    -d @"$TEMP_JSON")
+  
+  # Remove the temporary file
+  rm "$TEMP_JSON"
+  
+  # Extract the output and save to file
+  echo "$RESPONSE" | jq -r '.stdout' > "$OUTPUT_FILE"
+  echo "Saved output to: $OUTPUT_FILE" >&2
+}
 
-# Send the request using the temporary file
-RESPONSE=$(curl -s -X POST http://localhost:$PORT/run-command \
-  -H "Content-Type: application/json" \
-  -d @"$TEMP_JSON")
+# Export the function so GNU parallel can use it
+export -f process_file
 
-# Remove the temporary file
-rm "$TEMP_JSON"
-
-# Extract and display only stdout from the response
-echo "Results:" >&2
-echo "$RESPONSE" | jq -r '.stdout'
+# Process files in parallel
+if [ ${#INPUT_FILES[@]} -gt 1 ]; then
+  echo "Processing ${#INPUT_FILES[@]} files in parallel..." >&2
+  parallel -j $(nproc) process_file {} $PORT ::: "${INPUT_FILES[@]}"
+else
+  # Single file mode - process directly
+  process_file "${INPUT_FILES[0]}" $PORT
+fi
 
 # Clean up - stop and remove the container
 echo "Cleaning up..." >&2

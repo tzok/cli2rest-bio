@@ -34,7 +34,7 @@ Each tool comes with a convenience script that simplifies usage:
 ```bash
 # For Reduce (adding hydrogens to RNA structures)
 ./reduce/reduce.sh your_rna.pdb                # Process a single file
-./reduce/reduce.sh /path/to/pdb/files/         # Process all PDB files in a directory
+./reduce/reduce.sh /path/to/pdb/files/         # Process all PDB files in a directory (in parallel)
 
 # For MaxiT format conversions
 ./maxit/maxit-pdb2cif.sh your_rna.pdb          # Process a single file
