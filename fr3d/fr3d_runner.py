@@ -55,9 +55,9 @@ def process_cif(cif_path):
         # Redirect stdout/stderr to devnull to silence output
         original_stdout = sys.stdout
         original_stderr = sys.stderr
-        sys.stdout = open(os.devnull, 'w')
-        sys.stderr = open(os.devnull, 'w')
-        
+        sys.stdout = open(os.devnull, "w")
+        sys.stderr = open(os.devnull, "w")
+
         try:
             # Run FR3D analysis silently
             generatePairwiseAnnotation(
