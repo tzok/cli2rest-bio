@@ -14,8 +14,7 @@ RUN apt-get update -y \
 RUN git clone https://github.com/BGSU-RNA/fr3d-python.git
 
 # Install FR3D and its dependencies
-WORKDIR /fr3d-python
-RUN pip3 install -e .
+RUN cd fr3d-python && pip3 install -e .
 
 # Create a script to run FR3D
 COPY fr3d_runner.py /usr/local/bin/fr3d_runner.py
