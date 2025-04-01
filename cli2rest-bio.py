@@ -40,11 +40,12 @@ def parse_arguments(config, tool_name):
         description=config.get("description", "Tool runner"),
     )
 
-    # Add input file argument
+    # Add input file argument that accepts multiple files
     parser.add_argument(
         "--input-file",
-        help="Input file to process",
+        help="Input file(s) to process. Can be specified multiple times for multiple files.",
         required=True,
+        action="append",  # Allow multiple --input-file arguments
     )
 
     # Add common arguments
@@ -271,15 +272,14 @@ def main():
     # Parse command line arguments
     args = parse_arguments(config, tool_name)
 
-    # Get the input file
-    input_file = args.input_file
-
-    # Check if the file exists
-    if not os.path.isfile(input_file):
-        print(f"Error: Input file '{input_file}' not found", file=sys.stderr)
-        sys.exit(1)
-
-    input_files = [input_file]
+    # Get the input files
+    input_files = []
+    for input_file in args.input_file:
+        # Check if the file exists
+        if not os.path.isfile(input_file):
+            print(f"Error: Input file '{input_file}' not found", file=sys.stderr)
+            sys.exit(1)
+        input_files.append(input_file)
 
     if len(input_files) > 1:
         print(f"Found {len(input_files)} files to process", file=sys.stderr)
