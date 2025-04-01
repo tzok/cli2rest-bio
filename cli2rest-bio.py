@@ -119,7 +119,9 @@ def find_input_files(file_path, extensions):
 def start_docker_container(docker_image):
     """Start a Docker container with the specified image and return the container ID and port."""
     # Generate a unique container name using UUID
-    container_name = f"{docker_image.split('/')[-1].split(':')[0]}-{uuid.uuid4().hex[:8]}"
+    container_name = (
+        f"{docker_image.split('/')[-1].split(':')[0]}-{uuid.uuid4().hex[:8]}"
+    )
 
     print(f"Starting container with image: {docker_image}...", file=sys.stderr)
 
