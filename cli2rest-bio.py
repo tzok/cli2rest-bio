@@ -47,7 +47,7 @@ def parse_arguments(config, tool_name):
         default=os.cpu_count(),
         help="Number of parallel threads to use",
     )
-    
+
     # Add input files as positional arguments
     parser.add_argument(
         "input_files",
