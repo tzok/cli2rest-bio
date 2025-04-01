@@ -142,14 +142,16 @@ def process_file(input_file, config, args, port, tool_name):
 
     # Prepare input files
     input_files = []
-    for input_file_config in cli2rest_config.get("input_files", []):
-        relative_path = input_file_config.get("relative_path")
-        file_path = input_file
-
-        with open(file_path, "r") as f:
+    # Get the input file path from config
+    input_file_path = cli2rest_config.get("input_file")
+    if input_file_path:
+        with open(input_file, "r") as f:
             content = f.read()
 
-        input_files.append({"relative_path": relative_path, "content": content})
+        input_files.append({"relative_path": input_file_path, "content": content})
+    else:
+        print(f"Error: No input_file specified in cli2rest configuration", file=sys.stderr)
+        return
 
     # Get output files
     output_files = cli2rest_config.get("output_files", [])
