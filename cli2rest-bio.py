@@ -58,7 +58,6 @@ def parse_arguments(config, tool_name):
     return parser.parse_args()
 
 
-
 def start_docker_container(docker_image):
     """Start a Docker container with the specified image and return the container ID and port."""
     # Generate a unique container name using UUID
@@ -150,7 +149,9 @@ def process_file(input_file, config, args, port, tool_name):
 
         input_files.append({"relative_path": input_file_path, "content": content})
     else:
-        print(f"Error: No input_file specified in cli2rest configuration", file=sys.stderr)
+        print(
+            f"Error: No input_file specified in cli2rest configuration", file=sys.stderr
+        )
         return
 
     # Get output files
