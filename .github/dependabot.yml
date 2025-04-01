@@ -31,3 +31,74 @@ updates:
       allowed-update-types:
         - "minor"
         - "patch"
+        
+  # Enable version updates for Python packages
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    assignees:
+      - "tzok"
+    labels:
+      - "dependencies"
+      - "python"
+    groups:
+      python-packages:
+        patterns:
+          - "*"
+    auto-merge:
+      auto-approve: true
+      allowed-update-types:
+        - "minor"
+        - "patch"
+        
+  # Enable version updates for Docker images in each tool directory
+  - package-ecosystem: "docker"
+    directory: "/fr3d/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    assignees:
+      - "tzok"
+    labels:
+      - "dependencies"
+      - "docker"
+      
+  - package-ecosystem: "docker"
+    directory: "/maxit/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    assignees:
+      - "tzok"
+    labels:
+      - "dependencies"
+      - "docker"
+      
+  - package-ecosystem: "docker"
+    directory: "/reduce/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    assignees:
+      - "tzok"
+    labels:
+      - "dependencies"
+      - "docker"
+      
+  - package-ecosystem: "docker"
+    directory: "/rnaview/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    assignees:
+      - "tzok"
+    labels:
+      - "dependencies"
+      - "docker"
