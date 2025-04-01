@@ -224,12 +224,15 @@ def main():
 
     # Ensure we have at least a config file and one input file
     if len(args.config_and_input_files) < 2:
-        print("Error: You must provide a config file path and at least one input file", file=sys.stderr)
+        print(
+            "Error: You must provide a config file path and at least one input file",
+            file=sys.stderr,
+        )
         sys.exit(1)
-        
+
     # First argument is the config file path
     config_path = args.config_and_input_files[0]
-    
+
     # Load the tool configuration
     config = load_tool_config(config_path)
 
