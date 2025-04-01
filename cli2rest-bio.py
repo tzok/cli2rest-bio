@@ -158,8 +158,6 @@ def stop_docker_container(container):
     container.remove()
 
 
-
-
 def process_file(input_file, config, args, port, tool_name):
     """Process a single input file using the specified tool configuration."""
     # Get file information
@@ -183,14 +181,11 @@ def process_file(input_file, config, args, port, tool_name):
     for input_file_config in cli2rest_config.get("input_files", []):
         relative_path = input_file_config.get("relative_path")
         file_path = input_file
-        
+
         with open(file_path, "r") as f:
             content = f.read()
-        
-        input_files.append({
-            "relative_path": relative_path,
-            "content": content
-        })
+
+        input_files.append({"relative_path": relative_path, "content": content})
 
     # Get output files
     output_files = cli2rest_config.get("output_files", [])
@@ -223,15 +218,15 @@ def process_file(input_file, config, args, port, tool_name):
         for output_file in result["output_files"]:
             relative_path = output_file["relative_path"]
             content = output_file["content"]
-            
+
             # Create the file with tool_name prefix
             prefixed_output_path = os.path.join(
                 input_dir, f"{tool_name}-{input_base}-{relative_path}"
             )
-            
+
             # Create output directory if it doesn't exist
             os.makedirs(os.path.dirname(prefixed_output_path), exist_ok=True)
-            
+
             # Write the content
             with open(prefixed_output_path, "w") as f:
                 f.write(content)
@@ -278,12 +273,12 @@ def main():
 
     # Get the input file
     input_file = args.input_file
-    
+
     # Check if the file exists
     if not os.path.isfile(input_file):
         print(f"Error: Input file '{input_file}' not found", file=sys.stderr)
         sys.exit(1)
-        
+
     input_files = [input_file]
 
     if len(input_files) > 1:
