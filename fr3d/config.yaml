@@ -1,21 +1,27 @@
 name: "fr3d"
-description: "Find RNA 3D interactions"
+description: "FR3D software for searching and annotating RNA 3D structures"
 docker_image: "ghcr.io/tzok/cli2rest-fr3d:latest"
 
 inputs:
-  - name: "input_file"
-    description: "Input CIF file or directory containing CIF files"
+  - name: "input"
+    description: "Input CIF file or path with CIF files (will be analyzed non-recursively)"
     type: "file"
     required: true
     extensions: [".cif"]
 
 outputs:
-  - name: "output_file"
-    description: "Output JSON file with FR3D analysis results"
-    file_pattern: "{{ input_file_base }}-fr3d.json"
+  - name: "basepair_detail"
+    description: "Output file with FR3D analysis results for basepair_detail category"
+    file_pattern: "basepair_detail.txt"
+  - name: "stacking"
+    description: "Output file with FR3D analysis results for stacking category"
+    file_pattern: "stacking.txt"
+  - name: "backbone"
+    description: "Output file with FR3D analysis results for backbone category"
+    file_pattern: "backbone.txt"
 
 command:
-  cli_tool: "fr3d_runner.py"
+  cli_tool: "wrapper.py"
   template: "{{ cli_tool }} {{ input_file }}"
   file_mappings:
     - input: "{{ input_file }}"

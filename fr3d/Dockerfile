@@ -17,8 +17,8 @@ RUN git clone https://github.com/BGSU-RNA/fr3d-python.git
 RUN cd fr3d-python && pip3 install -e .
 
 # Create a script to run FR3D
-COPY fr3d_runner.py /usr/local/bin/fr3d_runner.py
-RUN chmod +x /usr/local/bin/fr3d_runner.py
+COPY wrapper.py /usr/local/bin/wrapper.py
+RUN chmod +x /usr/local/bin/wrapper.py
 
 # Make sure the installed binary is in the PATH
 ENV PATH="/usr/local/bin:${PATH}"

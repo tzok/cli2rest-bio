@@ -58,42 +58,6 @@ def parse_arguments(config, tool_name):
     return parser.parse_args()
 
 
-def find_input_files(file_path, extensions):
-    """Find all files with the specified extensions in the input path."""
-    file_path = os.path.abspath(file_path)
-
-    if os.path.isfile(file_path):
-        # Check if the file has a valid extension
-        if any(file_path.lower().endswith(ext.lower()) for ext in extensions):
-            return [file_path]
-        else:
-            valid_exts = ", ".join(extensions)
-            print(
-                f"Error: Input file must have one of these extensions: {valid_exts}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-    elif os.path.isdir(file_path):
-        # Find all files with the specified extensions
-        files = []
-        for ext in extensions:
-            files.extend(glob.glob(os.path.join(file_path, f"*{ext}")))
-
-        if not files:
-            valid_exts = ", ".join(extensions)
-            print(
-                f"Error: No files with extensions {valid_exts} found in directory '{file_path}'",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        return sorted(files)
-
-    else:
-        print(f"Error: '{file_path}' is not a valid file or directory", file=sys.stderr)
-        sys.exit(1)
-
 
 def start_docker_container(docker_image):
     """Start a Docker container with the specified image and return the container ID and port."""
@@ -279,9 +243,6 @@ def main():
             print(f"Error: Input file '{input_file}' not found", file=sys.stderr)
             sys.exit(1)
         input_files.append(input_file)
-
-    if len(input_files) > 1:
-        print(f"Found {len(input_files)} files to process", file=sys.stderr)
 
     # Start the Docker container
     container, port = start_docker_container(config["docker_image"])
