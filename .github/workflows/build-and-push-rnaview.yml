@@ -1,6 +1,9 @@
 name: Build and Push RNAView Container
 
 on:
+  schedule:
+    # Check for updates daily at midnight
+    - cron: '0 0 * * *'
   push:
     branches: [ main ]
     paths:
@@ -9,7 +12,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  check-for-updates:
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+    steps:
+      - name: Check for changes in RNAView files
+        id: check
+        run: |
+          # For RNAView, we'll run daily regardless since we don't have a specific upstream repo to check
+          echo "Running daily build for RNAView"
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+
   build-and-push:
+    needs: check-for-updates
+    if: ${{ needs.check-for-updates.outputs.has_changes == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
