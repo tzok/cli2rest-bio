@@ -9,6 +9,7 @@ Currently, the following tools are available:
 - [Reduce](./reduce/): A tool for adding hydrogens to RNA structures in PDB format
 - [MaxiT](./maxit/): A tool for RNA structure format conversion and validation
 - [FR3D](./fr3d/): A tool for RNA structure annotation and classification
+- [RNAView](./rnaview/): A tool for RNA secondary structure annotation
 
 ## How It Works
 
@@ -20,66 +21,101 @@ Each tool is containerized with Docker and exposed through a REST API that follo
    - Input files encoded as strings
 
 2. The API returns a JSON response with:
-   - Exit code
    - Standard output
    - Standard error
-   - Any generated files
+   - Any generated output files
 
-## Quick Start
+## Using the CLI2REST Python Script
 
-### Using the Convenience Scripts
-
-Each tool comes with a convenience script that simplifies usage:
+The repository includes a Python script `cli2rest-bio.py` that simplifies using the containerized tools:
 
 ```bash
-# For Reduce (adding hydrogens to RNA structures)
-./reduce/reduce.sh your_rna.pdb                # Process a single file
-./reduce/reduce.sh /path/to/pdb/files/         # Process all PDB files in a directory (in parallel)
+# Basic usage
+./cli2rest-bio.py <config_file> <input_file1> [<input_file2> ...]
 
-# For MaxiT format conversions
-./maxit/maxit-pdb2cif.sh your_rna.pdb          # Process a single file
-./maxit/maxit-pdb2cif.sh /path/to/pdb/files/   # Process all PDB files in a directory
+# Example with Reduce
+./cli2rest-bio.py reduce/config.yaml sample.pdb
 
-./maxit/maxit-cif2pdb.sh your_rna.cif          # Process a single file
-./maxit/maxit-cif2pdb.sh /path/to/cif/files/   # Process all CIF files in a directory
+# Example with MaxiT for PDB to CIF conversion
+./cli2rest-bio.py maxit/config-pdb2cif.yaml sample.pdb
 
-./maxit/maxit-cif2mmcif.sh your_rna.cif        # Process a single file
-./maxit/maxit-cif2mmcif.sh /path/to/cif/files/ # Process all CIF files in a directory
+# Process multiple files
+./cli2rest-bio.py fr3d/config.yaml sample1.cif sample2.cif sample3.cif
 
-# For FR3D RNA structure annotation
-./fr3d/fr3d.sh your_rna.cif                    # Process a single file
-./fr3d/fr3d.sh /path/to/cif/files/             # Process all CIF files in a directory (in parallel)
+# Control parallelism
+./cli2rest-bio.py --threads 4 rnaview/config-pdb.yaml *.pdb
 ```
 
-When processing a single file, the output will be saved to a file with the same base name but a different extension. For example:
-- `input.cif` → `input.pdb` (when using maxit-cif2pdb.sh)
-- `input.pdb` → `input.cif` (when using maxit-pdb2cif.sh)
-- `input.cif` → `input.mmcif` (when using maxit-cif2mmcif.sh)
+The script will:
+1. Start the appropriate Docker container
+2. Process each input file according to the configuration
+3. Save output files with the tool name as a prefix
+4. Clean up the container when done
 
-When processing multiple files in a directory, the scripts use GNU parallel to process files in parallel, which significantly speeds up the operation when dealing with many files.
+## Configuration Files
 
-### Using the REST API Directly
+Each tool requires a YAML configuration file that specifies:
 
-You can also interact with the API directly:
+- `name`: The tool name (used for output file prefixes)
+- `docker_image`: The Docker image to use
+- `cli_tool`: The command-line tool to run inside the container
+- `arguments`: Command-line arguments to pass to the tool
+- `input_file`: The relative path where the input file should be placed
+- `output_files`: List of output files to retrieve from the container
 
-```bash
-# Start a container (example with Reduce)
-docker run -p 8000:8000 ghcr.io/tzok/cli2rest-reduce:latest
-
-# Send a request
-curl -X POST http://localhost:8000/run-command \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cli_tool": "reduce",
-    "arguments": ["input.pdb"],
-    "files": [
-      {
-        "relative_path": "input.pdb",
-        "content": "ATOM      1  P     G A   1      -0.521   9.276   5.352  1.00  0.00           P  \n..."
-      }
-    ]
-  }'
+Example configuration (reduce/config.yaml):
+```yaml
+name: "reduce"
+docker_image: "ghcr.io/tzok/cli2rest-reduce:latest"
+cli_tool: "reduce"
+arguments:
+  - "input.pdb"
+input_file: "input.pdb"
 ```
+
+Example configuration with output files (fr3d/config.yaml):
+```yaml
+name: "fr3d"
+docker_image: "ghcr.io/tzok/cli2rest-fr3d:latest"
+cli_tool: "wrapper.py"
+arguments:
+  - "input.cif"
+input_file: "input.cif"
+output_files:
+  - "basepair_detail.txt"
+  - "stacking.txt"
+  - "backbone.txt"
+```
+
+## Creating Configuration Files for New Tools
+
+To add support for a new tool:
+
+1. Create a new directory for your tool
+2. Create a Dockerfile that installs the tool and the CLI2REST wrapper
+3. Create a YAML configuration file with the following structure:
+
+```yaml
+name: "your-tool-name"
+docker_image: "ghcr.io/your-username/cli2rest-your-tool:latest"
+cli_tool: "your-tool-command"
+arguments:
+  - "arg1"
+  - "arg2"
+  - "input.ext"
+input_file: "input.ext"
+output_files:
+  - "output1.ext"
+  - "output2.ext"
+```
+
+Guidelines for configuration files:
+- `name`: Should be short and descriptive, used as a prefix for output files
+- `docker_image`: Must point to a valid Docker image with the CLI2REST wrapper
+- `cli_tool`: The exact command to run inside the container
+- `arguments`: List of arguments in the order they should be passed to the tool
+- `input_file`: The path where your input file will be placed inside the container
+- `output_files`: List of files that should be retrieved from the container after processing (optional)
 
 ## Pre-built Container Images
 
@@ -94,33 +130,16 @@ docker pull ghcr.io/tzok/cli2rest-maxit:latest
 
 # Pull the FR3D container
 docker pull ghcr.io/tzok/cli2rest-fr3d:latest
-```
 
-These images are automatically built and updated with the latest changes.
-
-## Building from Source
-
-If you prefer to build the containers yourself, each tool has its own Dockerfile in its respective directory:
-
-```bash
-# Build Reduce container
-cd reduce
-docker build -t cli2rest-reduce .
-
-# Build MaxiT container
-cd maxit
-docker build -t cli2rest-maxit .
-
-# Build FR3D container
-cd fr3d
-docker build -t cli2rest-fr3d .
+# Pull the RNAView container
+docker pull ghcr.io/tzok/cli2rest-rnaview:latest
 ```
 
 ## Requirements
 
+- Python 3.6+
 - Docker
-- curl (for API requests)
-- jq (for processing JSON responses)
+- Python packages: docker, requests, pyyaml
 
 ## License
 
