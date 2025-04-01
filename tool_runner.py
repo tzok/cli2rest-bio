@@ -7,6 +7,7 @@ import os
 import random
 import string
 import sys
+import stat
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -15,6 +16,11 @@ import docker
 import jinja2
 import requests
 import yaml
+
+# Make this script executable
+current_file = os.path.abspath(__file__)
+current_mode = os.stat(current_file).st_mode
+os.chmod(current_file, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
 def load_tool_config(tool_name):
