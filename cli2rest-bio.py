@@ -257,7 +257,7 @@ def process_file(input_file, config, args, port, tool_name):
     # Prepare output file list
     output_files = []
     for output in config.get("outputs", []):
-        output_files.append(output["name"])
+        output_files.append(output["file_pattern"])
 
     # Create the JSON payload
     payload = {
