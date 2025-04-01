@@ -135,7 +135,7 @@ def process_file(input_file, config, args, port, tool_name):
     if not cli_tool:
         print(f"Error: No cli_tool specified in configuration", file=sys.stderr)
         return
-        
+
     arguments = config.get("arguments", [])
 
     # Prepare input files
@@ -148,9 +148,7 @@ def process_file(input_file, config, args, port, tool_name):
 
         input_files.append({"relative_path": input_file_path, "content": content})
     else:
-        print(
-            f"Error: No input_file specified in configuration", file=sys.stderr
-        )
+        print(f"Error: No input_file specified in configuration", file=sys.stderr)
         return
 
     # Get output files
