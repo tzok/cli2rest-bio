@@ -37,7 +37,6 @@ def parse_arguments(config, tool_name):
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         prog=f"cli2rest-bio.py {tool_name}",
-        description=config.get("description", "Tool runner"),
     )
 
     # Add common arguments
