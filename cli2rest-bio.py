@@ -214,9 +214,8 @@ def process_file(input_file, config, args, port, tool_name):
     for output in config.get("outputs", []):
         output_name = output["name"]
         output_pattern = output["file_pattern"]
-        output_path = os.path.join(
-            input_dir, render_template(output_pattern, variables)
-        )
+        # Use the pattern as-is, not as a template
+        output_path = os.path.join(input_dir, output_pattern)
         variables[output_name] = output_path
 
         # Create output directory if it doesn't exist
@@ -286,10 +285,10 @@ def process_file(input_file, config, args, port, tool_name):
         # Process each output file from the configuration
         for output in config.get("outputs", []):
             output_pattern = output["file_pattern"]
-            rendered_pattern = render_template(output_pattern, variables)
-
+            # Use the pattern as-is, not as a template
+            
             # Create the file with tool_name prefix
-            output_path = os.path.join(input_dir, rendered_pattern)
+            output_path = os.path.join(input_dir, output_pattern)
             prefixed_output_path = os.path.join(
                 input_dir, f"{tool_name}-{input_base}-{os.path.basename(output_path)}"
             )
@@ -297,10 +296,7 @@ def process_file(input_file, config, args, port, tool_name):
             # Find matching output file in the response
             content_written = False
             for output_file in result["output_files"]:
-                if (
-                    output_file["relative_path"] == rendered_pattern
-                    or output_file["relative_path"] == output_pattern
-                ):
+                if output_file["relative_path"] == output_pattern:
                     with open(prefixed_output_path, "w") as f:
                         f.write(output_file["content"])
                     print(f"Saved output to: {prefixed_output_path}", file=sys.stderr)
