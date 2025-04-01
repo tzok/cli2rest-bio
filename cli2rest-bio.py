@@ -129,20 +129,19 @@ def process_file(input_file, config, args, port, tool_name):
 
     print(f"Processing file: {input_file}", file=sys.stderr)
 
-    # Get cli2rest configuration
-    cli2rest_config = config.get("cli2rest", {})
-    if not cli2rest_config:
-        print(f"Error: No cli2rest configuration found in config.yaml", file=sys.stderr)
-        return
-
+    # Get configuration directly from the YAML
     # Get cli_tool and arguments
-    cli_tool = cli2rest_config.get("cli_tool")
-    arguments = cli2rest_config.get("arguments", [])
+    cli_tool = config.get("cli_tool")
+    if not cli_tool:
+        print(f"Error: No cli_tool specified in configuration", file=sys.stderr)
+        return
+        
+    arguments = config.get("arguments", [])
 
     # Prepare input files
     input_files = []
     # Get the input file path from config
-    input_file_path = cli2rest_config.get("input_file")
+    input_file_path = config.get("input_file")
     if input_file_path:
         with open(input_file, "r") as f:
             content = f.read()
@@ -150,12 +149,12 @@ def process_file(input_file, config, args, port, tool_name):
         input_files.append({"relative_path": input_file_path, "content": content})
     else:
         print(
-            f"Error: No input_file specified in cli2rest configuration", file=sys.stderr
+            f"Error: No input_file specified in configuration", file=sys.stderr
         )
         return
 
     # Get output files
-    output_files = cli2rest_config.get("output_files", [])
+    output_files = config.get("output_files", [])
 
     # Create the JSON payload
     payload = {
