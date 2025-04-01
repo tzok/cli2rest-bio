@@ -26,7 +26,7 @@ def load_tool_config(config_path):
 
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
-    
+
     # Ensure the config has a name field
     if "name" not in config:
         print(
@@ -43,7 +43,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         prog="cli2rest-bio.py",
     )
-    
+
     # Add config file argument
     parser.add_argument(
         "--config",
@@ -231,10 +231,10 @@ def main():
 
     # Load the tool configuration
     config = load_tool_config(args.config)
-    
+
     # Get the tool name from the config
     tool_name = config["name"]
-    
+
     print(f"Using tool: {tool_name}", file=sys.stderr)
     print(f"Configuration loaded from: {args.config}", file=sys.stderr)
 
