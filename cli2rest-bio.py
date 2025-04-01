@@ -281,25 +281,52 @@ def process_file(input_file, config, args, port, tool_name):
     # Extract the output and save to files
     result = response.json()
 
-    # Create output files with tool_name prefix
-    for output in config.get("outputs", []):
-        output_name = output["name"]
-        output_pattern = output["file_pattern"]
-        output_path = os.path.join(
-            input_dir, render_template(output_pattern, variables)
-        )
+    # Check if output_files are in the response
+    if "output_files" in result and result["output_files"]:
+        # Process each output file from the configuration
+        for output in config.get("outputs", []):
+            output_pattern = output["file_pattern"]
+            rendered_pattern = render_template(output_pattern, variables)
+            
+            # Create the file with tool_name prefix
+            output_path = os.path.join(input_dir, rendered_pattern)
+            prefixed_output_path = os.path.join(
+                input_dir, f"{tool_name}-{input_base}-{os.path.basename(output_path)}"
+            )
+            
+            # Find matching output file in the response
+            content_written = False
+            for output_file in result["output_files"]:
+                if output_file["relative_path"] == rendered_pattern or output_file["relative_path"] == output_pattern:
+                    with open(prefixed_output_path, "w") as f:
+                        f.write(output_file["content"])
+                    print(f"Saved output to: {prefixed_output_path}", file=sys.stderr)
+                    content_written = True
+                    break
+            
+            # If no matching output file was found, use stdout for the first output
+            if not content_written and output == config["outputs"][0]:
+                with open(prefixed_output_path, "w") as f:
+                    f.write(result["stdout"])
+                print(f"Saved output to: {prefixed_output_path} (from stdout)", file=sys.stderr)
+    else:
+        # Fallback to using stdout for the first output
+        for output in config.get("outputs", []):
+            output_pattern = output["file_pattern"]
+            output_path = os.path.join(
+                input_dir, render_template(output_pattern, variables)
+            )
 
-        # Create the file with tool_name prefix
-        prefixed_output_path = os.path.join(
-            input_dir, f"{tool_name}-{input_base}-{os.path.basename(output_path)}"
-        )
+            # Create the file with tool_name prefix
+            prefixed_output_path = os.path.join(
+                input_dir, f"{tool_name}-{input_base}-{os.path.basename(output_path)}"
+            )
 
-        with open(prefixed_output_path, "w") as f:
-            # If this is the first output, use stdout content
-            if output_name == config["outputs"][0]["name"]:
-                f.write(result["stdout"])
-
-        print(f"Saved output to: {prefixed_output_path}", file=sys.stderr)
+            with open(prefixed_output_path, "w") as f:
+                # If this is the first output, use stdout content
+                if output == config["outputs"][0]:
+                    f.write(result["stdout"])
+                    print(f"Saved output to: {prefixed_output_path} (from stdout)", file=sys.stderr)
 
     # Always create stdout and stderr files
     stdout_path = os.path.join(input_dir, f"{tool_name}-{input_base}-stdout.txt")
