@@ -189,7 +189,7 @@ def render_template(template_str, variables):
     return template.render(**variables)
 
 
-def process_file(input_file, config, args, port):
+def process_file(input_file, config, args, port, tool_name):
     """Process a single input file using the specified tool configuration."""
     # Get file information
     input_base = os.path.splitext(os.path.basename(input_file))[0]
@@ -281,12 +281,36 @@ def process_file(input_file, config, args, port):
     # Extract the output and save to files
     result = response.json()
 
-    # Save stdout to the primary output file
-    primary_output = variables.get(config["outputs"][0]["name"])
-    with open(primary_output, "w") as f:
+    # Create output files with tool_name prefix
+    for output in config.get("outputs", []):
+        output_name = output["name"]
+        output_pattern = output["file_pattern"]
+        output_path = os.path.join(
+            input_dir, render_template(output_pattern, variables)
+        )
+        
+        # Create the file with tool_name prefix
+        prefixed_output_path = os.path.join(
+            input_dir, f"{tool_name}-{input_base}-{os.path.basename(output_path)}"
+        )
+        
+        with open(prefixed_output_path, "w") as f:
+            # If this is the first output, use stdout content
+            if output_name == config["outputs"][0]["name"]:
+                f.write(result["stdout"])
+        
+        print(f"Saved output to: {prefixed_output_path}", file=sys.stderr)
+    
+    # Always create stdout and stderr files
+    stdout_path = os.path.join(input_dir, f"{tool_name}-{input_base}-stdout.txt")
+    with open(stdout_path, "w") as f:
         f.write(result["stdout"])
-
-    print(f"Saved output to: {primary_output}", file=sys.stderr)
+    print(f"Saved stdout to: {stdout_path}", file=sys.stderr)
+    
+    stderr_path = os.path.join(input_dir, f"{tool_name}-{input_base}-stderr.txt")
+    with open(stderr_path, "w") as f:
+        f.write(result.get("stderr", ""))
+    print(f"Saved stderr to: {stderr_path}", file=sys.stderr)
 
 
 def main():
@@ -331,7 +355,7 @@ def main():
         # Process files in parallel
         with ThreadPoolExecutor(max_workers=args.threads) as executor:
             futures = [
-                executor.submit(process_file, input_file, config, args, port)
+                executor.submit(process_file, input_file, config, args, port, tool_name)
                 for input_file in input_files
             ]
 
