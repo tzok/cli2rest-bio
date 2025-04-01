@@ -34,9 +34,10 @@ def load_tool_config(tool_name):
     return config
 
 
-def parse_arguments(config):
+def parse_arguments(config, tool_name):
     """Parse command line arguments based on the tool configuration."""
     parser = argparse.ArgumentParser(
+        prog=f"cli2rest-bio.py {tool_name}",
         description=config.get("description", "Tool runner")
     )
 
@@ -307,7 +308,7 @@ def main():
     config = load_tool_config(tool_name)
 
     # Parse command line arguments
-    args = parse_arguments(config)
+    args = parse_arguments(config, tool_name)
 
     # Find input files for file-type inputs
     input_files = []
