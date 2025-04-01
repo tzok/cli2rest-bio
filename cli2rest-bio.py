@@ -291,19 +291,21 @@ def process_file(input_file, config, args, port):
 def main():
     # Check if a tool name was provided
     if len(sys.argv) < 2:
-        print("Error: Tool name must be provided as the first argument", file=sys.stderr)
+        print(
+            "Error: Tool name must be provided as the first argument", file=sys.stderr
+        )
         print("Usage: ./cli2rest-bio.py <tool_name> [options]", file=sys.stderr)
         sys.exit(1)
-    
+
     # Get the tool name from the first argument
     tool_name = sys.argv[1]
-    
+
     # Remove the tool name from sys.argv to not interfere with argparse
     sys.argv.pop(1)
-    
+
     # Load the tool configuration
     config = load_tool_config(tool_name)
-    
+
     # Parse command line arguments
     args = parse_arguments(config)
 
