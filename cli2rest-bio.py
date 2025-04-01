@@ -286,7 +286,7 @@ def process_file(input_file, config, args, port, tool_name):
         for output in config.get("outputs", []):
             output_pattern = output["file_pattern"]
             # Use the pattern as-is, not as a template
-            
+
             # Create the file with tool_name prefix
             output_path = os.path.join(input_dir, output_pattern)
             prefixed_output_path = os.path.join(
