@@ -242,8 +242,8 @@ def process_file(input_file, config, args, port):
     command = render_template(command_template, variables)
     command_args = command.split()[1:]  # Skip the cli_tool itself
 
-    # Prepare file mappings
-    files = []
+    # Prepare input file mappings
+    input_files = []
     for mapping in config["command"].get("file_mappings", []):
         input_path = render_template(mapping["input"], variables)
         container_path = mapping["container_path"]
@@ -251,10 +251,20 @@ def process_file(input_file, config, args, port):
         with open(input_path, "r") as f:
             content = f.read()
 
-        files.append({"relative_path": container_path, "content": content})
+        input_files.append({"relative_path": container_path, "content": content})
+    
+    # Prepare output file list
+    output_files = []
+    for output in config.get("outputs", []):
+        output_files.append(output["name"])
 
     # Create the JSON payload
-    payload = {"cli_tool": cli_tool, "arguments": command_args, "files": files}
+    payload = {
+        "cli_tool": cli_tool, 
+        "arguments": command_args, 
+        "input_files": input_files,
+        "output_files": output_files
+    }
 
     # Send the request to the container
     response = requests.post(
