@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-
 import argparse
 import glob
 import json
 import os
-import random
-import string
 import sys
+import uuid
 import stat
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -16,11 +14,6 @@ import docker
 import jinja2
 import requests
 import yaml
-
-# Make this script executable
-current_file = os.path.abspath(__file__)
-current_mode = os.stat(current_file).st_mode
-os.chmod(current_file, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
 def load_tool_config(tool_name):
@@ -125,8 +118,8 @@ def find_input_files(file_path, extensions):
 
 def start_docker_container(docker_image):
     """Start a Docker container with the specified image and return the container ID and port."""
-    # Generate a unique container name
-    container_name = f"{docker_image.split('/')[-1].split(':')[0]}-{''.join(random.choices(string.ascii_lowercase + string.digits, k=8))}"
+    # Generate a unique container name using UUID
+    container_name = f"{docker_image.split('/')[-1].split(':')[0]}-{uuid.uuid4().hex[:8]}"
 
     print(f"Starting container with image: {docker_image}...", file=sys.stderr)
 
