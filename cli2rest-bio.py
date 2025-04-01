@@ -15,28 +15,40 @@ import requests
 import yaml
 
 
-def load_tool_config(tool_name):
-    """Load the YAML configuration for a specific tool."""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, tool_name, "config.yaml")
-
+def load_tool_config(config_path):
+    """Load the YAML configuration from the specified path."""
     if not os.path.exists(config_path):
         print(
-            f"Error: Configuration for tool '{tool_name}' not found at {config_path}",
+            f"Error: Configuration file not found at {config_path}",
             file=sys.stderr,
         )
         sys.exit(1)
 
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
+    
+    # Ensure the config has a name field
+    if "name" not in config:
+        print(
+            f"Error: Configuration file must contain a 'name' field",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     return config
 
 
-def parse_arguments(config, tool_name):
+def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        prog=f"cli2rest-bio.py {tool_name}",
+        prog="cli2rest-bio.py",
+    )
+    
+    # Add config file argument
+    parser.add_argument(
+        "--config",
+        required=True,
+        help="Path to the YAML configuration file",
     )
 
     # Add common arguments
@@ -214,25 +226,17 @@ def process_file(input_file, config, args, port, tool_name):
 
 
 def main():
-    # Check if a tool name was provided
-    if len(sys.argv) < 2:
-        print(
-            "Error: Tool name must be provided as the first argument", file=sys.stderr
-        )
-        print("Usage: ./cli2rest-bio.py <tool_name> [options]", file=sys.stderr)
-        sys.exit(1)
-
-    # Get the tool name from the first argument
-    tool_name = sys.argv[1]
-
-    # Remove the tool name from sys.argv to not interfere with argparse
-    sys.argv.pop(1)
+    # Parse command line arguments
+    args = parse_arguments()
 
     # Load the tool configuration
-    config = load_tool_config(tool_name)
-
-    # Parse command line arguments
-    args = parse_arguments(config, tool_name)
+    config = load_tool_config(args.config)
+    
+    # Get the tool name from the config
+    tool_name = config["name"]
+    
+    print(f"Using tool: {tool_name}", file=sys.stderr)
+    print(f"Configuration loaded from: {args.config}", file=sys.stderr)
 
     # Get the input files
     input_files = []
