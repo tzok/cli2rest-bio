@@ -307,35 +307,19 @@ def process_file(input_file, config, args, port, tool_name):
                     content_written = True
                     break
 
-            # If no matching output file was found, use stdout for the first output
-            if not content_written and output == config["outputs"][0]:
-                with open(prefixed_output_path, "w") as f:
-                    f.write(result["stdout"])
+            # If no matching output file was found, report an error
+            if not content_written:
                 print(
-                    f"Saved output to: {prefixed_output_path} (from stdout)",
+                    f"Error: Expected output file '{output_pattern}' not found in response",
                     file=sys.stderr,
                 )
+                # Don't exit here to allow other files to be processed and cleanup to happen
     else:
-        # Fallback to using stdout for the first output
-        for output in config.get("outputs", []):
-            output_pattern = output["file_pattern"]
-            output_path = os.path.join(
-                input_dir, render_template(output_pattern, variables)
-            )
-
-            # Create the file with tool_name prefix
-            prefixed_output_path = os.path.join(
-                input_dir, f"{tool_name}-{input_base}-{os.path.basename(output_path)}"
-            )
-
-            with open(prefixed_output_path, "w") as f:
-                # If this is the first output, use stdout content
-                if output == config["outputs"][0]:
-                    f.write(result["stdout"])
-                    print(
-                        f"Saved output to: {prefixed_output_path} (from stdout)",
-                        file=sys.stderr,
-                    )
+        # Report error if output_files are not in the response
+        print(
+            f"Error: No output_files found in response for {input_file}",
+            file=sys.stderr,
+        )
 
     # Always create stdout and stderr files
     stdout_path = os.path.join(input_dir, f"{tool_name}-{input_base}-stdout.txt")
