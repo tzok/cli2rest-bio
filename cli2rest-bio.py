@@ -288,25 +288,25 @@ def process_file(input_file, config, args, port, tool_name):
         output_path = os.path.join(
             input_dir, render_template(output_pattern, variables)
         )
-        
+
         # Create the file with tool_name prefix
         prefixed_output_path = os.path.join(
             input_dir, f"{tool_name}-{input_base}-{os.path.basename(output_path)}"
         )
-        
+
         with open(prefixed_output_path, "w") as f:
             # If this is the first output, use stdout content
             if output_name == config["outputs"][0]["name"]:
                 f.write(result["stdout"])
-        
+
         print(f"Saved output to: {prefixed_output_path}", file=sys.stderr)
-    
+
     # Always create stdout and stderr files
     stdout_path = os.path.join(input_dir, f"{tool_name}-{input_base}-stdout.txt")
     with open(stdout_path, "w") as f:
         f.write(result["stdout"])
     print(f"Saved stdout to: {stdout_path}", file=sys.stderr)
-    
+
     stderr_path = os.path.join(input_dir, f"{tool_name}-{input_base}-stderr.txt")
     with open(stderr_path, "w") as f:
         f.write(result.get("stderr", ""))
