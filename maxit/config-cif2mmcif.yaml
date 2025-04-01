@@ -1,0 +1,22 @@
+name: "maxit-cif2mmcif"
+description: "Convert CIF files to mmCIF format"
+docker_image: "ghcr.io/tzok/cli2rest-maxit:latest"
+
+inputs:
+  - name: "input_file"
+    description: "Input CIF file or directory containing CIF files"
+    type: "file"
+    required: true
+    extensions: [".cif"]
+
+outputs:
+  - name: "output_file"
+    description: "Output mmCIF file"
+    file_pattern: "{{ input_file_base }}.mmcif"
+
+command:
+  cli_tool: "maxit"
+  template: "{{ cli_tool }} -input {{ input_file }} -output {{ output_file }} -o 8"
+  file_mappings:
+    - input: "{{ input_file }}"
+      container_path: "input.cif"

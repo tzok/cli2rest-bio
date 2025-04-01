@@ -1,0 +1,22 @@
+name: "fr3d"
+description: "Find RNA 3D interactions"
+docker_image: "ghcr.io/tzok/cli2rest-fr3d:latest"
+
+inputs:
+  - name: "input_file"
+    description: "Input CIF file or directory containing CIF files"
+    type: "file"
+    required: true
+    extensions: [".cif"]
+
+outputs:
+  - name: "output_file"
+    description: "Output JSON file with FR3D analysis results"
+    file_pattern: "{{ input_file_base }}-fr3d.json"
+
+command:
+  cli_tool: "fr3d_runner.py"
+  template: "{{ cli_tool }} {{ input_file }}"
+  file_mappings:
+    - input: "{{ input_file }}"
+      container_path: "input.cif"

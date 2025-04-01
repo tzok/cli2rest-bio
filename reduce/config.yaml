@@ -1,0 +1,28 @@
+name: "reduce"
+description: "Add hydrogens to PDB structures"
+docker_image: "ghcr.io/tzok/cli2rest-reduce:latest"
+
+inputs:
+  - name: "input_file"
+    description: "Input PDB file or directory containing PDB files"
+    type: "file"
+    required: true
+    extensions: [".pdb"]
+  
+  - name: "flip"
+    description: "Flip peptide orientations"
+    type: "boolean"
+    default: true
+    required: false
+
+outputs:
+  - name: "output_file"
+    description: "Output PDB file with hydrogens added"
+    file_pattern: "{{ input_file_base }}-reduce.pdb"
+
+command:
+  cli_tool: "reduce"
+  template: "{{ cli_tool }} {% if flip %}-f{% endif %} {{ input_file }}"
+  file_mappings:
+    - input: "{{ input_file }}"
+      container_path: "input.pdb"
