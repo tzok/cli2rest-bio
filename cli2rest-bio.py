@@ -44,13 +44,6 @@ def parse_arguments():
         prog="cli2rest-bio.py",
     )
 
-    # Add config file argument
-    parser.add_argument(
-        "--config",
-        required=True,
-        help="Path to the YAML configuration file",
-    )
-
     # Add common arguments
     parser.add_argument(
         "--threads",
@@ -59,11 +52,11 @@ def parse_arguments():
         help="Number of parallel threads to use",
     )
 
-    # Add input files as positional arguments
+    # Add config file and input files as positional arguments
     parser.add_argument(
-        "input_files",
+        "config_and_input_files",
         nargs="+",
-        help="Input file(s) to process",
+        help="Config file path followed by input file(s) to process",
     )
 
     return parser.parse_args()
@@ -229,18 +222,26 @@ def main():
     # Parse command line arguments
     args = parse_arguments()
 
+    # Ensure we have at least a config file and one input file
+    if len(args.config_and_input_files) < 2:
+        print("Error: You must provide a config file path and at least one input file", file=sys.stderr)
+        sys.exit(1)
+        
+    # First argument is the config file path
+    config_path = args.config_and_input_files[0]
+    
     # Load the tool configuration
-    config = load_tool_config(args.config)
+    config = load_tool_config(config_path)
 
     # Get the tool name from the config
     tool_name = config["name"]
 
     print(f"Using tool: {tool_name}", file=sys.stderr)
-    print(f"Configuration loaded from: {args.config}", file=sys.stderr)
+    print(f"Configuration loaded from: {config_path}", file=sys.stderr)
 
-    # Get the input files
+    # Get the input files (all arguments after the first one)
     input_files = []
-    for input_file in args.input_files:
+    for input_file in args.config_and_input_files[1:]:
         # Check if the file exists
         if not os.path.isfile(input_file):
             print(f"Error: Input file '{input_file}' not found", file=sys.stderr)
