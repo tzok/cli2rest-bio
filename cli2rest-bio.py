@@ -11,7 +11,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import docker
-import jinja2
 import requests
 import yaml
 
@@ -35,39 +34,18 @@ def load_tool_config(tool_name):
 
 
 def parse_arguments(config, tool_name):
-    """Parse command line arguments based on the tool configuration."""
+    """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         prog=f"cli2rest-bio.py {tool_name}",
         description=config.get("description", "Tool runner"),
     )
 
-    # Add arguments for each input defined in the config
-    for input_param in config.get("inputs", []):
-        arg_name = f"--{input_param['name'].replace('_', '-')}"
-
-        if input_param.get("type") == "boolean":
-            parser.add_argument(
-                arg_name,
-                help=input_param.get("description", ""),
-                action="store_true"
-                if input_param.get("default", False)
-                else "store_false",
-                dest=input_param["name"],
-            )
-        elif input_param.get("required", False):
-            parser.add_argument(
-                arg_name,
-                help=input_param.get("description", ""),
-                required=True,
-                dest=input_param["name"],
-            )
-        else:
-            parser.add_argument(
-                arg_name,
-                help=f"{input_param.get('description', '')} (default: {input_param.get('default', None)})",
-                default=input_param.get("default", None),
-                dest=input_param["name"],
-            )
+    # Add input file argument
+    parser.add_argument(
+        "--input-file",
+        help="Input file to process",
+        required=True,
+    )
 
     # Add common arguments
     parser.add_argument(
@@ -180,88 +158,47 @@ def stop_docker_container(container):
     container.remove()
 
 
-def render_template(template_str, variables):
-    """Render a template string with Jinja2."""
-    env = jinja2.Environment(
-        undefined=jinja2.StrictUndefined, trim_blocks=True, lstrip_blocks=True
-    )
-    template = env.from_string(template_str)
-    return template.render(**variables)
 
 
 def process_file(input_file, config, args, port, tool_name):
     """Process a single input file using the specified tool configuration."""
     # Get file information
     input_base = os.path.splitext(os.path.basename(input_file))[0]
-    input_ext = os.path.splitext(input_file)[1]
     input_dir = os.path.dirname(input_file)
-
-    # Create variables dictionary for template rendering
-    variables = {
-        "input_file": input_file,
-        "input_file_base": input_base,
-        "input_file_ext": input_ext,
-        "input_dir": input_dir,
-    }
-
-    # Add command line arguments to variables
-    for input_param in config.get("inputs", []):
-        param_name = input_param["name"]
-        if hasattr(args, param_name):
-            variables[param_name] = getattr(args, param_name)
-
-    # Determine output file paths
-    for output in config.get("outputs", []):
-        output_name = output["name"]
-        output_pattern = output["file_pattern"]
-        # Use the pattern as-is, not as a template
-        output_path = os.path.join(input_dir, output_pattern)
-        variables[output_name] = output_path
-
-        # Create output directory if it doesn't exist
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-        # Skip if output file already exists
-        if os.path.exists(output_path):
-            print(
-                f"Skipping {input_file} - output file already exists: {output_path}",
-                file=sys.stderr,
-            )
-            return
 
     print(f"Processing file: {input_file}", file=sys.stderr)
 
-    # Prepare the command
-    cli_tool = config["command"]["cli_tool"]
-    command_template = config["command"]["template"]
+    # Get cli2rest configuration
+    cli2rest_config = config.get("cli2rest", {})
+    if not cli2rest_config:
+        print(f"Error: No cli2rest configuration found in config.yaml", file=sys.stderr)
+        return
 
-    # Add cli_tool to variables
-    variables["cli_tool"] = cli_tool
+    # Get cli_tool and arguments
+    cli_tool = cli2rest_config.get("cli_tool")
+    arguments = cli2rest_config.get("arguments", [])
 
-    # Render the command template
-    command = render_template(command_template, variables)
-    command_args = command.split()[1:]  # Skip the cli_tool itself
-
-    # Prepare input file mappings
+    # Prepare input files
     input_files = []
-    for mapping in config["command"].get("file_mappings", []):
-        input_path = render_template(mapping["input"], variables)
-        container_path = mapping["container_path"]
-
-        with open(input_path, "r") as f:
+    for input_file_config in cli2rest_config.get("input_files", []):
+        relative_path = input_file_config.get("relative_path")
+        file_path = input_file
+        
+        with open(file_path, "r") as f:
             content = f.read()
+        
+        input_files.append({
+            "relative_path": relative_path,
+            "content": content
+        })
 
-        input_files.append({"relative_path": container_path, "content": content})
-
-    # Prepare output file list
-    output_files = []
-    for output in config.get("outputs", []):
-        output_files.append(output["file_pattern"])
+    # Get output files
+    output_files = cli2rest_config.get("output_files", [])
 
     # Create the JSON payload
     payload = {
         "cli_tool": cli_tool,
-        "arguments": command_args,
+        "arguments": arguments,
         "input_files": input_files,
         "output_files": output_files,
     }
@@ -280,36 +217,25 @@ def process_file(input_file, config, args, port, tool_name):
     # Extract the output and save to files
     result = response.json()
 
-    # Check if output_files are in the response
+    # Process output files from the response
     if "output_files" in result and result["output_files"]:
-        # Process each output file from the configuration
-        for output in config.get("outputs", []):
-            output_pattern = output["file_pattern"]
-            # Use the pattern as-is, not as a template
-
+        # Save each output file
+        for output_file in result["output_files"]:
+            relative_path = output_file["relative_path"]
+            content = output_file["content"]
+            
             # Create the file with tool_name prefix
-            output_path = os.path.join(input_dir, output_pattern)
             prefixed_output_path = os.path.join(
-                input_dir, f"{tool_name}-{input_base}-{os.path.basename(output_path)}"
+                input_dir, f"{tool_name}-{input_base}-{relative_path}"
             )
-
-            # Find matching output file in the response
-            content_written = False
-            for output_file in result["output_files"]:
-                if output_file["relative_path"] == output_pattern:
-                    with open(prefixed_output_path, "w") as f:
-                        f.write(output_file["content"])
-                    print(f"Saved output to: {prefixed_output_path}", file=sys.stderr)
-                    content_written = True
-                    break
-
-            # If no matching output file was found, report an error
-            if not content_written:
-                print(
-                    f"Error: Expected output file '{output_pattern}' not found in response",
-                    file=sys.stderr,
-                )
-                # Don't exit here to allow other files to be processed and cleanup to happen
+            
+            # Create output directory if it doesn't exist
+            os.makedirs(os.path.dirname(prefixed_output_path), exist_ok=True)
+            
+            # Write the content
+            with open(prefixed_output_path, "w") as f:
+                f.write(content)
+            print(f"Saved output to: {prefixed_output_path}", file=sys.stderr)
     else:
         # Report error if output_files are not in the response
         print(
@@ -350,16 +276,15 @@ def main():
     # Parse command line arguments
     args = parse_arguments(config, tool_name)
 
-    # Find input files for file-type inputs
-    input_files = []
-    for input_param in config.get("inputs", []):
-        if input_param["type"] == "file" and input_param.get("required", False):
-            param_name = input_param["name"]
-            param_value = getattr(args, param_name)
-            extensions = input_param.get("extensions", [])
-
-            files = find_input_files(param_value, extensions)
-            input_files.extend(files)
+    # Get the input file
+    input_file = args.input_file
+    
+    # Check if the file exists
+    if not os.path.isfile(input_file):
+        print(f"Error: Input file '{input_file}' not found", file=sys.stderr)
+        sys.exit(1)
+        
+    input_files = [input_file]
 
     if len(input_files) > 1:
         print(f"Found {len(input_files)} files to process", file=sys.stderr)
