@@ -252,7 +252,7 @@ def process_file(input_file, config, args, port):
             content = f.read()
 
         input_files.append({"relative_path": container_path, "content": content})
-    
+
     # Prepare output file list
     output_files = []
     for output in config.get("outputs", []):
@@ -260,10 +260,10 @@ def process_file(input_file, config, args, port):
 
     # Create the JSON payload
     payload = {
-        "cli_tool": cli_tool, 
-        "arguments": command_args, 
+        "cli_tool": cli_tool,
+        "arguments": command_args,
         "input_files": input_files,
-        "output_files": output_files
+        "output_files": output_files,
     }
 
     # Send the request to the container
