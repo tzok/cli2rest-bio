@@ -1,3 +1,4 @@
+name: "reduce"
 docker_image: "ghcr.io/tzok/cli2rest-reduce:latest"
 cli_tool: "reduce"
 arguments:

@@ -1,0 +1,13 @@
+name: "maxit"
+docker_image: "ghcr.io/tzok/cli2rest-maxit:latest"
+cli_tool: "maxit"
+arguments:
+  - "-input"
+  - "input.pdb"
+  - "-output"
+  - "output.cif"
+  - "-o"
+  - "1"
+input_file: "input.pdb"
+output_files:
+  - "output.cif"
