@@ -21,7 +21,7 @@ def load_tool_config(config_path):
     if os.path.isdir(config_path):
         yaml_path = os.path.join(config_path, "config.yaml")
         yml_path = os.path.join(config_path, "config.yml")
-        
+
         if os.path.exists(yaml_path):
             config_path = yaml_path
         elif os.path.exists(yml_path):
@@ -32,7 +32,7 @@ def load_tool_config(config_path):
                 file=sys.stderr,
             )
             sys.exit(1)
-    
+
     if not os.path.exists(config_path):
         print(
             f"Error: Configuration file not found at {config_path}",
