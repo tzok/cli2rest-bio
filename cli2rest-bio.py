@@ -51,7 +51,7 @@ def parse_arguments():
         default=os.cpu_count(),
         help="Number of parallel threads to use",
     )
-    
+
     parser.add_argument(
         "--api-url",
         type=str,
@@ -260,12 +260,12 @@ def main():
     # Determine if we're using an external API or starting a Docker container
     container = None
     base_url = args.api_url
-    
+
     if base_url:
         # Using external API
         print(f"Using external API at: {base_url}", file=sys.stderr)
         # Remove trailing slash if present
-        base_url = base_url.rstrip('/')
+        base_url = base_url.rstrip("/")
         port = None  # Not needed when using external API
     else:
         # Start the Docker container
@@ -276,7 +276,9 @@ def main():
         # Process files in parallel
         with ThreadPoolExecutor(max_workers=args.threads) as executor:
             futures = [
-                executor.submit(process_file, input_file, config, args, base_url, tool_name)
+                executor.submit(
+                    process_file, input_file, config, args, base_url, tool_name
+                )
                 for input_file in input_files
             ]
 
