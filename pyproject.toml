@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "CLI to REST API wrapper for bioinformatics tools"
 readme = "README.md"
 authors = [
-    {name = "Author", email = "author@example.com"}
+    {name = "Tomasz Zok", email = "tomasz.zok@cs.put.poznan.pl"}
 ]
 license = {text = "MIT"}
 classifiers = [
