@@ -17,6 +17,22 @@ import yaml
 
 def load_tool_config(config_path):
     """Load the YAML configuration from the specified path."""
+    # If config_path is a directory, look for config.yaml or config.yml
+    if os.path.isdir(config_path):
+        yaml_path = os.path.join(config_path, "config.yaml")
+        yml_path = os.path.join(config_path, "config.yml")
+        
+        if os.path.exists(yaml_path):
+            config_path = yaml_path
+        elif os.path.exists(yml_path):
+            config_path = yml_path
+        else:
+            print(
+                f"Error: No config.yaml or config.yml found in directory {config_path}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    
     if not os.path.exists(config_path):
         print(
             f"Error: Configuration file not found at {config_path}",
