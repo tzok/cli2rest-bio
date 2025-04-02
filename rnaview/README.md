@@ -75,14 +75,17 @@ The API will return a JSON response with:
 - Standard error
 - Generated files (containing the analysis results)
 
-## Common RNAView Options
+## RNAView Options
 
 RNAView supports various command-line options:
 
-- For PDB files: `rnaview input.pdb`
-- For mmCIF files: `rnaview --cif input.cif`
-- `-s`: Output secondary structure in RNAML format
-- `-v`: Verbose output
-- `-x`: Generate XML output
+- Basic usage for PDB files: `rnaview --pdb pdbfile_name`
+- Basic usage for CIF files: `rnaview --cif ciffile_name`
+- `-p`: Generate fully annotated 2D structure in postscript format with detailed information in XML format (RNAML)
+- `-v`: Generate a 3D structure in VRML format for display on internet (with VRML plug-in)
+- `-c`: Select specific chains for calculation (e.g., `rnaview -pc --pdb ABC pdbfile_name`)
+- `-a`: Process multiple PDB files listed in a file (e.g., `rnaview -a file.list 3.0`)
+- `-x`: Input XML (RNAML) file, often combined with -p to generate a 2D structure
+- `--label`: Process CIF files using label instead of auth (default) (e.g., `rnaview -p --cif --label ciffile_name`)
 
-For a complete list of options, see the [RNAView documentation](https://github.com/rcsb/RNAView).
+For further information, contact: ndbadmin@ndbserver.rutgers.edu
