@@ -51,6 +51,12 @@ def parse_arguments():
         default=os.cpu_count(),
         help="Number of parallel threads to use",
     )
+    
+    parser.add_argument(
+        "--api-url",
+        type=str,
+        help="REST API URL endpoint (e.g., http://localhost:8000). If provided, no Docker container will be created.",
+    )
 
     # Add config file and input files as positional arguments
     parser.add_argument(
@@ -125,7 +131,7 @@ def stop_docker_container(container):
     container.remove()
 
 
-def process_file(input_file, config, args, port, tool_name):
+def process_file(input_file, config, args, base_url, tool_name):
     """Process a single input file using the specified tool configuration."""
     # Get file information
     input_base = os.path.splitext(os.path.basename(input_file))[0]
@@ -166,9 +172,9 @@ def process_file(input_file, config, args, port, tool_name):
         "output_files": output_files,
     }
 
-    # Send the request to the container
+    # Send the request to the API endpoint
     response = requests.post(
-        f"http://localhost:{port}/run-command",
+        f"{base_url}/run-command",
         headers={"Content-Type": "application/json"},
         json=payload,
     )
@@ -251,14 +257,26 @@ def main():
             sys.exit(1)
         input_files.append(input_file)
 
-    # Start the Docker container
-    container, port = start_docker_container(config["docker_image"])
+    # Determine if we're using an external API or starting a Docker container
+    container = None
+    base_url = args.api_url
+    
+    if base_url:
+        # Using external API
+        print(f"Using external API at: {base_url}", file=sys.stderr)
+        # Remove trailing slash if present
+        base_url = base_url.rstrip('/')
+        port = None  # Not needed when using external API
+    else:
+        # Start the Docker container
+        container, port = start_docker_container(config["docker_image"])
+        base_url = f"http://localhost:{port}"
 
     try:
         # Process files in parallel
         with ThreadPoolExecutor(max_workers=args.threads) as executor:
             futures = [
-                executor.submit(process_file, input_file, config, args, port, tool_name)
+                executor.submit(process_file, input_file, config, args, base_url, tool_name)
                 for input_file in input_files
             ]
 
@@ -267,8 +285,9 @@ def main():
                 future.result()
 
     finally:
-        # Clean up - stop and remove the container
-        stop_docker_container(container)
+        # Clean up - stop and remove the container if we created one
+        if container:
+            stop_docker_container(container)
 
     print("Done!", file=sys.stderr)
 
