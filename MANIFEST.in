@@ -1,0 +1,6 @@
+include README.md
+include requirements.txt
+recursive-include fr3d *
+recursive-include maxit *
+recursive-include reduce *
+recursive-include rnaview *
