@@ -1,0 +1,2 @@
+[console_scripts]
+cli2rest-bio = cli2rest_bio:main
