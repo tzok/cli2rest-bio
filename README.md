@@ -25,25 +25,37 @@ Each tool is containerized with Docker and exposed through a REST API that follo
    - Standard error
    - Any generated output files
 
-## Using the CLI2REST Python Script
+## Installation
 
-The repository includes a Python script `cli2rest-bio.py` that simplifies using the containerized tools:
+You can install the CLI2REST Bio tool directly from this repository:
+
+```bash
+# Install from the repository
+pip install .
+
+# Or install in development mode
+pip install -e .
+```
+
+## Using the CLI2REST Command Line Tool
+
+After installation, you can use the `cli2rest-bio` command to interact with the containerized tools:
 
 ```bash
 # Basic usage
-./cli2rest-bio.py <config_file> <input_file1> [<input_file2> ...]
+cli2rest-bio <config_file> <input_file1> [<input_file2> ...]
 
 # Example with Reduce
-./cli2rest-bio.py reduce/config.yaml sample.pdb
+cli2rest-bio reduce/config.yaml sample.pdb
 
 # Example with MaxiT for PDB to CIF conversion
-./cli2rest-bio.py maxit/config-pdb2cif.yaml sample.pdb
+cli2rest-bio maxit/config-pdb2cif.yaml sample.pdb
 
 # Process multiple files
-./cli2rest-bio.py fr3d/config.yaml sample1.cif sample2.cif sample3.cif
+cli2rest-bio fr3d/config.yaml sample1.cif sample2.cif sample3.cif
 
 # Control parallelism
-./cli2rest-bio.py --threads 4 rnaview/config-pdb.yaml *.pdb
+cli2rest-bio --threads 4 rnaview/config-pdb.yaml *.pdb
 ```
 
 The script will:
@@ -137,9 +149,9 @@ docker pull ghcr.io/tzok/cli2rest-rnaview:latest
 
 ## Requirements
 
-- Python 3.6+
+- Python 3.7+
 - Docker
-- Python packages: docker, requests, pyyaml
+- Python packages: docker, requests, pyyaml (automatically installed when using pip)
 
 ## License
 
