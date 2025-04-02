@@ -151,7 +151,7 @@ def process_file(input_file, config, args, base_url, tool_name):
     """Process a single input file using the specified tool configuration."""
     # Get file information
     input_base = os.path.splitext(os.path.basename(input_file))[0]
-    input_dir = os.path.dirname(input_file)
+    input_dir = os.path.dirname(os.path.abspath(input_file))
 
     print(f"Processing file: {input_file}", file=sys.stderr)
 
