@@ -25,3 +25,6 @@ dependencies = [
 
 [project.scripts]
 cli2rest-bio = "cli2rest_bio:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
