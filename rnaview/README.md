@@ -37,7 +37,7 @@ curl -X POST http://localhost:8000/run-command \
   -H "Content-Type: application/json" \
   -d '{
     "cli_tool": "rnaview",
-    "arguments": ["-p", "input.pdb"],
+    "arguments": ["input.pdb"],
     "files": [
       {
         "relative_path": "input.pdb",
@@ -54,7 +54,7 @@ If you have a structure file locally, you can use jq to build the request:
 ```bash
 jq -n --arg pdb "$(cat your_rna.pdb)" '{
   cli_tool: "rnaview",
-  arguments: ["-p", "input.pdb"],
+  arguments: ["input.pdb"],
   files: [
     {
       relative_path: "input.pdb",
@@ -79,8 +79,8 @@ The API will return a JSON response with:
 
 RNAView supports various command-line options:
 
-- `-p <file>`: Input PDB file
-- `-c <file>`: Input CIF file
+- For PDB files: `rnaview input.pdb`
+- For mmCIF files: `rnaview --cif input.cif`
 - `-s`: Output secondary structure in RNAML format
 - `-v`: Verbose output
 - `-x`: Generate XML output
