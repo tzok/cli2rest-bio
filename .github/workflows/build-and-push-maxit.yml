@@ -9,41 +9,7 @@ on:
     branches: [ main ]
 
 jobs:
-  check-for-updates:
-    runs-on: ubuntu-latest
-    outputs:
-      has_changes: ${{ steps.check.outputs.has_changes }}
-    steps:
-      - name: Check for new MAXIT version
-        id: check
-        run: |
-          # Get the latest version from the MAXIT version file
-          LATEST_VERSION=$(curl -s https://sw-tools.rcsb.org/apps/MAXIT/maxit-latest-version.txt | tr -d '\n\r')
-          
-          # Create a marker file if it doesn't exist
-          if [ ! -f .last_maxit_version ]; then
-            echo "First run, will build image"
-            echo $LATEST_VERSION > .last_maxit_version
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # Read the last processed version
-          LAST_PROCESSED_VERSION=$(cat .last_maxit_version)
-          
-          # Compare versions
-          if [ "$LATEST_VERSION" != "$LAST_PROCESSED_VERSION" ]; then
-            echo "New MAXIT version detected: $LATEST_VERSION (was $LAST_PROCESSED_VERSION)"
-            echo $LATEST_VERSION > .last_maxit_version
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          else
-            echo "No new MAXIT version, skipping build"
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          fi
-
   build-and-push:
-    needs: check-for-updates
-    if: ${{ needs.check-for-updates.outputs.has_changes == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

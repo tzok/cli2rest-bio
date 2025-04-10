@@ -9,13 +9,7 @@ on:
     branches: [ main ]
 
 jobs:
-  # Optional: Add a check-for-updates job similar to FR3D if RNAPOLIS has frequent releases
-  # or if you want to rebuild based on upstream changes. For now, building on push/schedule/manual.
-
   build-and-push:
-    # If adding check-for-updates:
-    # needs: check-for-updates
-    # if: ${{ needs.check-for-updates.outputs.has_changes == 'true' }} || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
