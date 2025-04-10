@@ -8,25 +8,21 @@ RNAPOLIS analyzes RNA 3D structures (in PDB or mmCIF format) to identify canonic
 
 ## Usage
 
-### Using the Convenience Script
+### Using the `cli2rest-bio` Tool
 
-The simplest way to use this container is with the provided convenience script:
+The recommended way to use this container is with the `cli2rest-bio` command-line tool provided in the main repository:
 
 ```bash
-# Process a single file
-./rnapolis.sh your_rna.cif
+# Process an archive of PDB/CIF files using the unifier
+cli2rest-bio rnapolis/config-unifier.yaml your_structures.tar.gz
 
-# Process all CIF files in a directory
-./rnapolis.sh /path/to/cif/files/
+# Example for a hypothetical single-file RNAPOLIS config (if created)
+# cli2rest-bio rnapolis/config-single.yaml your_rna.cif
 ```
 
-This will:
-1. Start a container with RNAPOLIS
-2. Process your CIF file(s) in parallel when processing a directory
-3. Save the annotations as JSON files (e.g., your_rna-rnapolis.json)
-4. Clean up the container
+This tool handles starting the container, sending requests, saving outputs, and cleaning up. See the main [README.md](../README.md) for more details on `cli2rest-bio`.
 
-*(Note: The convenience script `rnapolis.sh` needs to be created separately)*
+*(Note: The `config-unifier.yaml` uses `unifier-wrapper.py` inside the container to process `.tar.gz` archives containing multiple PDB/CIF files.)*
 
 ### Using the REST API Directly
 
@@ -36,26 +32,29 @@ You can also interact with the API directly:
 # Start the container
 docker run -p 8000:8000 ghcr.io/tzok/cli2rest-rnapolis:latest
 
-# Send a request
+# Send a request using form data
+# (Example assumes a hypothetical single-file config for simplicity)
+# Replace 'rnapolis -i input.cif -o output.json' with actual arguments from your config
+# Replace 'output.json' with actual output file names from your config
+
 curl -X POST http://localhost:8000/run-command \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cli_tool": "rnapolis",
-    "arguments": ["-i", "input.cif", "-o", "output.json"],
-    "files": [
-      {
-        "relative_path": "input.cif",
-        "content": "data_1EHZ\n#\n_entry.id 1EHZ\n..."
-      }
-    ]
-  }'
+  -F 'arguments=rnapolis' \
+  -F 'arguments=-i' \
+  -F 'arguments=input.cif' \
+  -F 'arguments=-o' \
+  -F 'arguments=output.json' \
+  -F 'output_files=output.json' \
+  -F 'input_files=@path/to/your_local_rna.cif;filename=input.cif'
 ```
+
+*(Note: For the `config-unifier.yaml`, you would send `unifier-wrapper.py --format PDB input.tar.gz` as arguments, `output.tar.gz` as output_files, and upload your archive as `input.tar.gz`)*
 
 ## Output Format
 
-The output is a JSON file containing detailed annotations of the RNA structure.
+The output depends on the specific RNAPOLIS command run.
 
-Example output (`output.json`):
+- For the `unifier-wrapper.py` (using `config-unifier.yaml`), the output is a `output.tar.gz` archive containing the processed files.
+- For a direct `rnapolis` call (hypothetical example above), the output would be `output.json` containing detailed annotations:
 ```json
 {
   "interactions": [
