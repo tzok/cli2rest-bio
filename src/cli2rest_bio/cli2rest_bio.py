@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import argparse
 import base64
 import os
 import sys
@@ -201,7 +200,7 @@ def process_file(input_file, config, args, base_url, tool_name):
         )
     finally:
         # Ensure uploaded files are closed
-        for f in files_to_upload.values():
+        for _, f in files_to_upload.values():
             f.close()
 
     if response.status_code != 200:

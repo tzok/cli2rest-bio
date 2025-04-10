@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-
-import os
 import argparse
 import glob
+import os
+
 from fr3d.classifiers.NA_pairwise_interactions import generatePairwiseAnnotation
 
 
