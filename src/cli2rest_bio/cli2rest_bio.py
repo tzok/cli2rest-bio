@@ -167,7 +167,10 @@ def process_file(input_file, config, args, base_url, tool_name):
     if input_file_config_path:
         try:
             # Open in binary mode for requests 'files' parameter
-            files_to_upload[input_file_config_path] = open(input_file, "rb")
+            # Use the field name expected by the FastAPI server ("input_files")
+            # and pass the configured filename within the tuple.
+            file_object = open(input_file, "rb")
+            files_to_upload["input_files"] = (input_file_config_path, file_object)
         except FileNotFoundError:
             print(f"Error: Input file {input_file} not found.", file=sys.stderr)
             return
