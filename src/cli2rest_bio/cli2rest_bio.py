@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import argparse
+import argparse
+import base64
 import os
 import sys
 import time
@@ -158,38 +160,50 @@ def process_file(input_file, config, args, base_url, tool_name):
         print("Error: No cli_tool specified in configuration", file=sys.stderr)
         return
 
-    arguments = config.get("arguments", [])
+    cli_arguments = config.get("arguments", [])
 
-    # Prepare input files
-    input_files = []
+    # Combine cli_tool and arguments for the form data
+    full_arguments = [cli_tool] + cli_arguments
+
+    # Prepare input files for the 'files' parameter
+    files_to_upload = {}
     # Get the input file path from config
-    input_file_path = config.get("input_file")
-    if input_file_path:
-        with open(input_file, "r") as f:
-            content = f.read()
-
-        input_files.append({"relative_path": input_file_path, "content": content})
+    input_file_config_path = config.get("input_file")
+    if input_file_config_path:
+        try:
+            # Open in binary mode for requests 'files' parameter
+            files_to_upload[input_file_config_path] = open(input_file, "rb")
+        except FileNotFoundError:
+            print(f"Error: Input file {input_file} not found.", file=sys.stderr)
+            return
+        except Exception as e:
+            print(f"Error opening input file {input_file}: {e}", file=sys.stderr)
+            return
     else:
         print("Error: No input_file specified in configuration", file=sys.stderr)
         return
 
-    # Get output files
-    output_files = config.get("output_files", [])
+    # Get expected output file names
+    output_file_names = config.get("output_files", [])
 
-    # Create the JSON payload
-    payload = {
-        "cli_tool": cli_tool,
-        "arguments": arguments,
-        "input_files": input_files,
-        "output_files": output_files,
+    # Prepare form data
+    form_data = {
+        "arguments": tuple(full_arguments),  # Send arguments as a tuple/list
+        "output_files": tuple(output_file_names), # Send output file names as tuple/list
     }
 
-    # Send the request to the API endpoint
-    response = requests.post(
-        f"{base_url}/run-command",
-        headers={"Content-Type": "application/json"},
-        json=payload,
-    )
+    # Send the request to the API endpoint using multipart/form-data
+    try:
+        response = requests.post(
+            f"{base_url}/run-command",
+            data=form_data,
+            files=files_to_upload,
+        )
+    finally:
+        # Ensure uploaded files are closed
+        for f in files_to_upload.values():
+            f.close()
+
 
     if response.status_code != 200:
         print(f"Error processing {input_file}: {response.text}", file=sys.stderr)
@@ -201,11 +215,22 @@ def process_file(input_file, config, args, base_url, tool_name):
     # Process output files from the response
     if "output_files" in result and result["output_files"]:
         # Save each output file
-        for output_file in result["output_files"]:
-            relative_path = output_file["relative_path"]
-            content = output_file["content"]
+        for output_file_data in result["output_files"]:
+            relative_path = output_file_data["relative_path"]
+            content_base64 = output_file_data.get("content_base64")
 
-            # Create the file with tool_name prefix
+            if content_base64 is None:
+                 print(f"Warning: Missing 'content_base64' for {relative_path} in response for {input_file}", file=sys.stderr)
+                 continue # Skip this file or handle as needed
+
+            # Decode the base64 content
+            try:
+                content_bytes = base64.b64decode(content_base64)
+            except base64.binascii.Error as e:
+                print(f"Error decoding base64 content for {relative_path}: {e}", file=sys.stderr)
+                continue # Skip this file
+
+            # Create the file path with tool_name prefix
             prefixed_output_path = os.path.join(
                 input_dir, f"{tool_name}-{input_base}-{relative_path}"
             )
@@ -213,10 +238,16 @@ def process_file(input_file, config, args, base_url, tool_name):
             # Create output directory if it doesn't exist
             os.makedirs(os.path.dirname(prefixed_output_path), exist_ok=True)
 
-            # Write the content
-            with open(prefixed_output_path, "w") as f:
-                f.write(content)
-            print(f"Saved output to: {prefixed_output_path}", file=sys.stderr)
+            # Write the decoded content (binary mode)
+            try:
+                with open(prefixed_output_path, "wb") as f:
+                    f.write(content_bytes)
+                print(f"Saved output to: {prefixed_output_path}", file=sys.stderr)
+            except IOError as e:
+                print(f"Error writing output file {prefixed_output_path}: {e}", file=sys.stderr)
+
+    elif "error" in result:
+         print(f"API returned an error for {input_file}: {result['error']}", file=sys.stderr)
     else:
         # Report error if output_files are not in the response
         print(
