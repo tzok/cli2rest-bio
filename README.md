@@ -9,6 +9,7 @@ Currently, the following tools are available:
 - [Reduce](./reduce/): A tool for adding hydrogens to RNA structures in PDB format
 - [MaxiT](./maxit/): A tool for RNA structure format conversion and validation
 - [FR3D](./fr3d/): A tool for RNA structure annotation and classification
+- [RNAPOLIS](./rnapolis/): A tool for RNA structure annotation
 - [RNAView](./rnaview/): A tool for RNA secondary structure annotation
 
 ## How It Works
@@ -142,6 +143,9 @@ docker pull ghcr.io/tzok/cli2rest-maxit:latest
 
 # Pull the FR3D container
 docker pull ghcr.io/tzok/cli2rest-fr3d:latest
+
+# Pull the RNAPOLIS container
+docker pull ghcr.io/tzok/cli2rest-rnapolis:latest
 
 # Pull the RNAView container
 docker pull ghcr.io/tzok/cli2rest-rnaview:latest
