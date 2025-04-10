@@ -24,12 +24,14 @@ def create_output_archive(output_dir, archive_name):
     try:
         # Check if output directory is empty or doesn't exist
         if not os.path.isdir(output_dir) or not os.listdir(output_dir):
-             print(f"Warning: Output directory '{output_dir}' is empty or does not exist. Creating an empty archive.")
-             # Create an empty tar.gz file
-             with tarfile.open(archive_name, "w:gz") as tar:
-                 pass # Creates an empty archive
-             print(f"Created empty archive: {archive_name}")
-             return
+            print(
+                f"Warning: Output directory '{output_dir}' is empty or does not exist. Creating an empty archive."
+            )
+            # Create an empty tar.gz file
+            with tarfile.open(archive_name, "w:gz") as tar:
+                pass  # Creates an empty archive
+            print(f"Created empty archive: {archive_name}")
+            return
 
         # Use tar command via subprocess
         # -C changes directory before adding files
@@ -58,7 +60,8 @@ if __name__ == "__main__":
         description="Wrapper script to run rnapolis.unifier on an archive of PDB/CIF files."
     )
     parser.add_argument(
-        "input_archive", help="Path to the input .tar.gz archive containing PDB/CIF files."
+        "input_archive",
+        help="Path to the input .tar.gz archive containing PDB/CIF files.",
     )
     parser.add_argument(
         "--format", help="Optional format argument passed to rnapolis.unifier."
@@ -85,7 +88,6 @@ if __name__ == "__main__":
         print(f"An error occurred during extraction: {e}")
         sys.exit(1)
 
-
     # --- 2. Create output directory ---
     os.makedirs(output_dir_name, exist_ok=True)
     print(f"Ensured output directory exists: {output_dir_name}")
@@ -103,39 +105,37 @@ if __name__ == "__main__":
         print("Exiting as there are no files to process.")
         sys.exit(0)
 
-
     # --- 4. Prepare arguments for rnapolis.unifier.main ---
     unifier_args = []
     if args.format:
         unifier_args.extend(["--format", args.format])
     unifier_args.extend(["--output", output_dir_name])
-    unifier_args.extend(input_files) # Add the list of files
+    unifier_args.extend(input_files)  # Add the list of files
 
     print(f"Calling rnapolis.unifier with args: {unifier_args}")
 
     # --- 5. Call rnapolis.unifier.main ---
     # We need to modify sys.argv as rnapolis.unifier.main likely uses argparse internally
     original_argv = sys.argv
-    sys.argv = ["rnapolis.unifier"] + unifier_args # Simulate command line call
+    sys.argv = ["rnapolis.unifier"] + unifier_args  # Simulate command line call
     try:
         unifier_main()
         print("rnapolis.unifier processing finished.")
     except SystemExit as e:
-         # Allow clean exits (e.g., from argparse --help)
-         # but report errors otherwise.
-         if e.code != 0:
-             print(f"rnapolis.unifier exited with code {e.code}")
-             # Potentially exit the wrapper too, depending on desired behavior
-             # sys.exit(e.code) # Uncomment to propagate exit code
-         else:
-             print("rnapolis.unifier exited cleanly.")
+        # Allow clean exits (e.g., from argparse --help)
+        # but report errors otherwise.
+        if e.code != 0:
+            print(f"rnapolis.unifier exited with code {e.code}")
+            # Potentially exit the wrapper too, depending on desired behavior
+            # sys.exit(e.code) # Uncomment to propagate exit code
+        else:
+            print("rnapolis.unifier exited cleanly.")
     except Exception as e:
         print(f"An error occurred while running rnapolis.unifier: {e}")
         # Decide if the wrapper should exit with an error
         # sys.exit(1) # Uncomment to exit wrapper on unifier error
     finally:
-        sys.argv = original_argv # Restore original sys.argv
-
+        sys.argv = original_argv  # Restore original sys.argv
 
     # --- 6. Create output archive ---
     create_output_archive(output_dir_name, output_archive_name)
