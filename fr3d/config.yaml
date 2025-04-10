@@ -1,7 +1,7 @@
 name: "fr3d"
 docker_image: "ghcr.io/tzok/cli2rest-fr3d:latest"
-cli_tool: "wrapper.py"
 arguments:
+  - "wrapper.py"
   - "input.cif"
 input_file: "input.cif"
 output_files:

@@ -1,7 +1,7 @@
 name: "maxit"
 docker_image: "ghcr.io/tzok/cli2rest-maxit:latest"
-cli_tool: "maxit"
 arguments:
+  - "maxit"
   - "-input"
   - "input.pdb"
   - "-output"
