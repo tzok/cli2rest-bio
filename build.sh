@@ -9,6 +9,7 @@ docker pull ghcr.io/tzok/cli2rest:latest
 echo "Building CLI2REST container images..."
 
 # Find all directories with a Dockerfile
+images=()
 for dir in */; do
 	# Remove trailing slash
 	dir=${dir%/}
@@ -25,10 +26,11 @@ for dir in */; do
 		cd "$dir"
 		docker build -t "ghcr.io/tzok/cli2rest-$dir" .
 	)
+	images=(${images[@]} "ghcr.io/tzok/cli2rest-$dir")
 
 	echo "Successfully built cli2rest-$dir image"
 	echo "----------------------------------------"
 done
 
 echo "All images built successfully!"
-echo "Available images: cli2rest-reduce, cli2rest-maxit, cli2rest-fr3d"
+echo "Available images: ${images[@]}"
