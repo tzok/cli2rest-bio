@@ -14,25 +14,19 @@ The tool is particularly useful for RNA structure analysis, comparison, and clas
 
 ## Usage
 
-### Using the Convenience Script
+### Using the `cli2rest-bio` Tool
 
-The simplest way to use this container is with the provided convenience script:
+The recommended way to use this container is with the `cli2rest-bio` command-line tool provided in the main repository:
 
 ```bash
-# Process a single file
-./fr3d.sh your_rna.cif
+# Process a single CIF file
+cli2rest-bio fr3d/config.yaml your_rna.cif
 
-# Process all CIF files in a directory
-./fr3d.sh /path/to/cif/files/
+# Process multiple CIF files (using shell expansion or listing them)
+cli2rest-bio fr3d/config.yaml *.cif
 ```
 
-This will:
-1. Start a container with FR3D
-2. Process your CIF file(s) in parallel when processing a directory
-3. Save the annotations as JSON files (e.g., your_rna-fr3d.json)
-4. Clean up the container
-
-The script uses GNU parallel to process multiple files simultaneously when a directory is provided, which significantly speeds up processing when dealing with many files.
+This tool handles starting the container, sending requests according to `fr3d/config.yaml`, saving outputs (prefixed with `fr3d-`), and cleaning up. See the main [README.md](../README.md) for more details on `cli2rest-bio`.
 
 ### Using the REST API Directly
 
@@ -42,35 +36,49 @@ You can also interact with the API directly:
 # Start the container
 docker run -p 8000:8000 ghcr.io/tzok/cli2rest-fr3d:latest
 
-# Send a request
+# Send a request using form data
+# Corresponds to fr3d/config.yaml
+
 curl -X POST http://localhost:8000/run-command \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cli_tool": "fr3d_runner.py",
-    "arguments": ["input.cif"],
-    "files": [
-      {
-        "relative_path": "input.cif",
-        "content": "data_1EHZ\n#\n_entry.id 1EHZ\n..."
-      }
-    ]
-  }'
+  -F 'arguments=wrapper.py' \
+  -F 'arguments=input.cif' \
+  -F 'output_files=basepair_detail.txt' \
+  -F 'output_files=stacking.txt' \
+  -F 'output_files=backbone.txt' \
+  -F 'input_files=@path/to/your_local_rna.cif;filename=input.cif'
 ```
 
 ## Output Format
 
-The output is a JSON object with three main sections:
+The `cli2rest-bio` tool saves the following output files (prefixed with `fr3d-<input_base_name>-`):
 
-- `basepair`: Detailed base pair annotations
-- `stacking`: Base stacking interactions
-- `backbone`: Backbone conformations
+- `basepair_detail.txt`: Detailed base pair annotations.
+- `stacking.txt`: Base stacking interactions.
+- `backbone.txt`: Backbone conformations.
+- `stdout.txt`: Standard output from the wrapper script.
+- `stderr.txt`: Standard error from the wrapper script.
 
-Example output:
+The API response itself contains the `stdout`, `stderr`, `exit_code`, and the content of the requested output files encoded in base64 within the `output_files` list. Example snippet of the JSON response:
+
 ```json
 {
-  "basepair": "# FR3D basepair annotations for 1EHZ\n...",
-  "stacking": "# FR3D stacking annotations for 1EHZ\n...",
-  "backbone": "# FR3D backbone annotations for 1EHZ\n..."
+  "exit_code": 0,
+  "stdout": "Created: backbone.txt\nCreated: basepair_detail.txt\nCreated: stacking.txt\n",
+  "stderr": "",
+  "output_files": [
+    {
+      "relative_path": "basepair_detail.txt",
+      "content_base64": "IyBG..."
+    },
+    {
+      "relative_path": "stacking.txt",
+      "content_base64": "IyBG..."
+    },
+    {
+      "relative_path": "backbone.txt",
+      "content_base64": "IyBG..."
+    }
+  ]
 }
 ```
 

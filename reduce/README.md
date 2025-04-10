@@ -6,33 +6,21 @@ This repository contains a Dockerfile for building a container with the [Reduce]
 
 Reduce is a program for adding hydrogens to RNA and other molecular structure files in PDB format. The program was developed by J. Michael Word at the Richardson Laboratory at Duke University.
 
-## Using the reduce.sh Script
+## Usage
 
-For convenience, this repository includes a `reduce.sh` script that simplifies the process of running Reduce on your PDB files:
+### Using the `cli2rest-bio` Tool
+
+The recommended way to use this container is with the `cli2rest-bio` command-line tool provided in the main repository:
 
 ```bash
-# Process a single file
-./reduce.sh your_rna.pdb
+# Process a single PDB file
+cli2rest-bio reduce/config.yaml your_rna.pdb
 
-# Process all PDB files in a directory
-./reduce.sh /path/to/pdb/files/
+# Process multiple PDB files (using shell expansion or listing them)
+cli2rest-bio reduce/config.yaml *.pdb
 ```
 
-The script:
-1. Starts a Docker container with Reduce
-2. Automatically finds an available port
-3. Waits for the service to be ready
-4. Processes your PDB file(s) in parallel when processing a directory
-5. Saves the processed PDB content to files (e.g., your_rna-reduce.pdb)
-6. Cleans up the container when done
-
-The script uses GNU parallel to process multiple files simultaneously when a directory is provided, which significantly speeds up processing when dealing with many files.
-
-### Prerequisites
-
-- Docker installed and running
-- `jq` command-line tool for JSON processing
-- `curl` for making HTTP requests
+This tool handles starting the container, sending requests according to `reduce/config.yaml`, saving outputs (stdout/stderr prefixed with `reduce-`), and cleaning up. See the main [README.md](../README.md) for more details on `cli2rest-bio`.
 
 ## Building the Container
 
@@ -54,66 +42,33 @@ docker run -p 8000:8000 cli2rest-reduce
 
 The CLI2REST API allows you to run the Reduce tool via HTTP requests. Here's how to use it:
 
-### Example: Adding hydrogens to an RNA structure
+### Example: Adding hydrogens using the API directly
 
-You can use cURL to send a request to the API:
+You can use cURL with form data to send a request:
 
 ```bash
+# Corresponds to reduce/config.yaml
+# Note: Reduce often writes the modified structure to stdout.
+# The config doesn't request specific output files.
+
 curl -X POST http://localhost:8000/run-command \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cli_tool": "reduce",
-    "arguments": ["input.pdb"],
-    "files": [
-      {
-        "relative_path": "input.pdb",
-        "content": "ATOM      1  P     G A   1      -0.521   9.276   5.352  1.00  0.00           P  \nATOM      2  OP1   G A   1      -0.880   9.088   6.785  1.00  0.00           O  \nATOM      3  OP2   G A   1      -1.154  10.349   4.548  1.00  0.00           O  \nATOM      4  O5\'   G A   1       1.056   9.358   5.199  1.00  0.00           O  \nATOM      5  C5\'   G A   1       1.849   8.189   5.386  1.00  0.00           C  \nEND"
-      }
-    ]
-  }'
-```
-
-### Using jq to format the request
-
-If you have a PDB file locally, you can use jq to build the request:
-
-```bash
-jq -n --arg pdb "$(cat your_rna.pdb)" '{
-  cli_tool: "reduce",
-  arguments: ["input.pdb"],
-  files: [
-    {
-      relative_path: "input.pdb",
-      content: $pdb
-    }
-  ]
-}' | curl -X POST http://localhost:8000/run-command \
-     -H "Content-Type: application/json" \
-     -d @-
+  -F 'arguments=reduce' \
+  -F 'arguments=input.pdb' \
+  -F 'input_files=@path/to/your_local_rna.pdb;filename=input.pdb'
 ```
 
 ### Response
 
-The API will return a JSON response with:
-
-- The exit code of the command
-- Standard output
-- Standard error
-- Generated files (if any)
+The API will return a JSON response containing the standard output (which usually includes the modified PDB), standard error, and exit code. Since `output_files` is empty in the config, the `output_files` list in the response will also be empty.
 
 Example response:
 
 ```json
 {
   "exit_code": 0,
-  "stdout": "...",
-  "stderr": "...",
-  "files": [
-    {
-      "relative_path": "output.pdb",
-      "content": "..."
-    }
-  ]
+  "stdout": "ATOM      1  P     G A   1      -0.521   9.276   5.352  1.00  0.00           P  \n...",
+  "stderr": "Reduce version 3.2.3\n...",
+  "output_files": []
 }
 ```
 

@@ -22,71 +22,65 @@ To start the container and expose the CLI2REST API on port 8000:
 docker run -p 8000:8000 cli2rest-maxit
 ```
 
-## Using the CLI2REST API
+## Usage
 
-The CLI2REST API allows you to run the MAXIT tool via HTTP requests. The convenience scripts now support parallel processing of multiple files using GNU parallel, which significantly improves performance when processing directories with many files.
+### Using the `cli2rest-bio` Tool
 
-Here's how to use the API directly:
+The recommended way to use this container is with the `cli2rest-bio` command-line tool provided in the main repository:
 
-### Example: Converting a PDB file to mmCIF
+```bash
+# Convert a PDB file to CIF using config-pdb2cif.yaml
+cli2rest-bio maxit/config-pdb2cif.yaml your_rna.pdb
 
-You can use cURL to send a request to the API:
+# Convert a CIF file to PDB using config-cif2pdb.yaml
+cli2rest-bio maxit/config-cif2pdb.yaml your_rna.cif
+
+# Convert a CIF file to mmCIF using config-cif2mmcif.yaml
+cli2rest-bio maxit/config-cif2mmcif.yaml your_rna.cif
+
+# Process multiple files
+cli2rest-bio maxit/config-pdb2cif.yaml *.pdb
+```
+
+This tool handles starting the container, sending requests according to the specified config, saving outputs (prefixed with `maxit-`), and cleaning up. See the main [README.md](../README.md) for more details on `cli2rest-bio`.
+
+### Using the REST API Directly
+
+You can also interact with the API directly using form data:
+
+#### Example: Converting PDB to CIF (corresponds to `config-pdb2cif.yaml`)
 
 ```bash
 curl -X POST http://localhost:8000/run-command \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cli_tool": "maxit",
-    "arguments": ["-input", "input.pdb", "-output", "/dev/stdout", "-o", "1"],
-    "files": [
-      {
-        "relative_path": "input.pdb",
-        "content": "ATOM      1  P     G A   1      -0.521   9.276   5.352  1.00  0.00           P  \nATOM      2  OP1   G A   1      -0.880   9.088   6.785  1.00  0.00           O  \nATOM      3  OP2   G A   1      -1.154  10.349   4.548  1.00  0.00           O  \nATOM      4  O5\'   G A   1       1.056   9.358   5.199  1.00  0.00           O  \nATOM      5  C5\'   G A   1       1.849   8.189   5.386  1.00  0.00           C  \nEND"
-      }
-    ]
-  }'
-```
-
-### Using jq to format the request
-
-If you have a PDB file locally, you can use jq to build the request:
-
-```bash
-jq -n --arg pdb "$(cat your_rna.pdb)" '{
-  cli_tool: "maxit",
-  arguments: ["-input", "input.pdb", "-output", "/dev/stdout", "-o", "1"],
-  files: [
-    {
-      relative_path: "input.pdb",
-      content: $pdb
-    }
-  ]
-}' | curl -X POST http://localhost:8000/run-command \
-     -H "Content-Type: application/json" \
-     -d @-
+  -F 'arguments=maxit' \
+  -F 'arguments=-input' \
+  -F 'arguments=input.pdb' \
+  -F 'arguments=-output' \
+  -F 'arguments=output.cif' \
+  -F 'arguments=-o' \
+  -F 'arguments=1' \
+  -F 'output_files=output.cif' \
+  -F 'input_files=@path/to/your_local_rna.pdb;filename=input.pdb'
 ```
 
 ### Response
 
-The API will return a JSON response with:
+The API will return a JSON response containing the standard output, standard error, exit code, and any requested output files encoded in base64.
 
-- The exit code of the command
-- Standard output (containing the converted file content)
-- Standard error
-- Generated files (if any)
-
-Example response:
+Example response for the PDB to CIF conversion above:
 
 ```json
 {
   "exit_code": 0,
-  "stdout": "data_RNA\n#\n_entry.id RNA\n...",
+  "stdout": "",
   "stderr": "...",
-  "files": []
+  "output_files": [
+    {
+      "relative_path": "output.cif",
+      "content_base64": "ZGF0YV..."
+    }
+  ]
 }
-```
-
-When using `/dev/stdout` as the output file, the converted content will be in the `stdout` field rather than in the `files` array. This is how our convenience scripts are designed to work.
 
 ## Common MAXIT Options
 
