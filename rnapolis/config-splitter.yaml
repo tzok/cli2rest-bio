@@ -1,0 +1,10 @@
+name: "rnapolis"
+docker_image: "ghcr.io/tzok/cli2rest-rnapolis:latest"
+arguments:
+  - "splitter-wrapper.py"
+  - "--format"
+  - "PDB"
+  - "input.pdb"
+input_file: "input.pdb"
+output_files:
+  - "output.tar.gz"

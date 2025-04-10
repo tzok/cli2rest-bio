@@ -16,13 +16,13 @@ The recommended way to use this container is with the `cli2rest-bio` command-lin
 # Process an archive of PDB/CIF files using the unifier
 cli2rest-bio rnapolis/config-unifier.yaml your_structures.tar.gz
 
-# Example for a hypothetical single-file RNAPOLIS config (if created)
-# cli2rest-bio rnapolis/config-single.yaml your_rna.cif
+# Process a single PDB/CIF file using the splitter
+cli2rest-bio rnapolis/config-splitter.yaml your_rna.pdb
 ```
 
 This tool handles starting the container, sending requests, saving outputs, and cleaning up. See the main [README.md](../README.md) for more details on `cli2rest-bio`.
 
-*(Note: The `config-unifier.yaml` uses `unifier-wrapper.py` inside the container to process `.tar.gz` archives containing multiple PDB/CIF files.)*
+*(Note: The `config-unifier.yaml` uses `unifier-wrapper.py` inside the container to process `.tar.gz` archives containing multiple PDB/CIF files, while `config-splitter.yaml` uses `splitter-wrapper.py` to process a single PDB/CIF file.)*
 
 ### Using the REST API Directly
 
