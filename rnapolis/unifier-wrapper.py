@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-
-import os
 import argparse
 import glob
-import tarfile
-import sys
+import os
 import subprocess
+import sys
+import tarfile
 
 # Attempt to import main from rnapolis.unifier
 try:

@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 import argparse
-import glob
-import json
 import os
 import sys
-import uuid
-import stat
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 
 import docker
 import requests
@@ -46,7 +42,7 @@ def load_tool_config(config_path):
     # Ensure the config has a name field
     if "name" not in config:
         print(
-            f"Error: Configuration file must contain a 'name' field",
+            "Error: Configuration file must contain a 'name' field",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -159,7 +155,7 @@ def process_file(input_file, config, args, base_url, tool_name):
     # Get cli_tool and arguments
     cli_tool = config.get("cli_tool")
     if not cli_tool:
-        print(f"Error: No cli_tool specified in configuration", file=sys.stderr)
+        print("Error: No cli_tool specified in configuration", file=sys.stderr)
         return
 
     arguments = config.get("arguments", [])
@@ -174,7 +170,7 @@ def process_file(input_file, config, args, base_url, tool_name):
 
         input_files.append({"relative_path": input_file_path, "content": content})
     else:
-        print(f"Error: No input_file specified in configuration", file=sys.stderr)
+        print("Error: No input_file specified in configuration", file=sys.stderr)
         return
 
     # Get output files
