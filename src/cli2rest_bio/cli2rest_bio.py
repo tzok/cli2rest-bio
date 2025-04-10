@@ -154,16 +154,11 @@ def process_file(input_file, config, args, base_url, tool_name):
     print(f"Processing file: {input_file}", file=sys.stderr)
 
     # Get configuration directly from the YAML
-    # Get cli_tool and arguments
-    cli_tool = config.get("cli_tool")
-    if not cli_tool:
-        print("Error: No cli_tool specified in configuration", file=sys.stderr)
+    # Get the full arguments list (including the tool command)
+    full_arguments = config.get("arguments", [])
+    if not full_arguments:
+        print("Error: No arguments specified in configuration", file=sys.stderr)
         return
-
-    cli_arguments = config.get("arguments", [])
-
-    # Combine cli_tool and arguments for the form data
-    full_arguments = [cli_tool] + cli_arguments
 
     # Prepare input files for the 'files' parameter
     files_to_upload = {}
