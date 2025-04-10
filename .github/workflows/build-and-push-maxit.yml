@@ -2,8 +2,8 @@ name: Build and Push cli2rest-maxit image
 
 on:
   schedule:
-    # Check for updates daily at midnight
-    - cron: '0 0 * * *'
+    # Run daily at 1:00 UTC
+    - cron: '0 1 * * *'
   workflow_dispatch:  # Allow manual triggering
   push:
     branches: [ main ]
