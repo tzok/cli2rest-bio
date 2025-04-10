@@ -12,6 +12,10 @@ RUN apt-get update -y \
 # Install RNAPOLIS
 RUN pip3 install rnapolis
 
-# Make sure the installed binary is in the PATH
+# Copy the unifier wrapper script
+COPY unifier-wrapper.py /usr/local/bin/unifier-wrapper.py
+RUN chmod +x /usr/local/bin/unifier-wrapper.py
+
+# Make sure the installed binary and script are in the PATH
 # (pip install usually handles this, but ensure /usr/local/bin or similar is in PATH)
 ENV PATH="/usr/local/bin:${PATH}"
