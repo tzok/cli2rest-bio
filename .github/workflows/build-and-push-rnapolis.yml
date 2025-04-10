@@ -1,4 +1,4 @@
-name: Build and Push CLI2REST RNAPOLIS Container
+name: Build and Push cli2rest-rnapolis image
 
 on:
   schedule:
@@ -6,10 +6,7 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:  # Allow manual triggering
   push:
-    branches:
-      - main # Or your default branch
-    paths:
-      - 'rnapolis/**' # Trigger on changes within the rnapolis directory
+    branches: [ main ]
 
 jobs:
   # Optional: Add a check-for-updates job similar to FR3D if RNAPOLIS has frequent releases
