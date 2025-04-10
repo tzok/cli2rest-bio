@@ -189,7 +189,9 @@ def process_file(input_file, config, args, base_url, tool_name):
     # Prepare form data
     form_data = {
         "arguments": tuple(full_arguments),  # Send arguments as a tuple/list
-        "output_files": tuple(output_file_names), # Send output file names as tuple/list
+        "output_files": tuple(
+            output_file_names
+        ),  # Send output file names as tuple/list
     }
 
     # Send the request to the API endpoint using multipart/form-data
@@ -203,7 +205,6 @@ def process_file(input_file, config, args, base_url, tool_name):
         # Ensure uploaded files are closed
         for f in files_to_upload.values():
             f.close()
-
 
     if response.status_code != 200:
         print(f"Error processing {input_file}: {response.text}", file=sys.stderr)
@@ -220,15 +221,21 @@ def process_file(input_file, config, args, base_url, tool_name):
             content_base64 = output_file_data.get("content_base64")
 
             if content_base64 is None:
-                 print(f"Warning: Missing 'content_base64' for {relative_path} in response for {input_file}", file=sys.stderr)
-                 continue # Skip this file or handle as needed
+                print(
+                    f"Warning: Missing 'content_base64' for {relative_path} in response for {input_file}",
+                    file=sys.stderr,
+                )
+                continue  # Skip this file or handle as needed
 
             # Decode the base64 content
             try:
                 content_bytes = base64.b64decode(content_base64)
             except base64.binascii.Error as e:
-                print(f"Error decoding base64 content for {relative_path}: {e}", file=sys.stderr)
-                continue # Skip this file
+                print(
+                    f"Error decoding base64 content for {relative_path}: {e}",
+                    file=sys.stderr,
+                )
+                continue  # Skip this file
 
             # Create the file path with tool_name prefix
             prefixed_output_path = os.path.join(
@@ -244,10 +251,16 @@ def process_file(input_file, config, args, base_url, tool_name):
                     f.write(content_bytes)
                 print(f"Saved output to: {prefixed_output_path}", file=sys.stderr)
             except IOError as e:
-                print(f"Error writing output file {prefixed_output_path}: {e}", file=sys.stderr)
+                print(
+                    f"Error writing output file {prefixed_output_path}: {e}",
+                    file=sys.stderr,
+                )
 
     elif "error" in result:
-         print(f"API returned an error for {input_file}: {result['error']}", file=sys.stderr)
+        print(
+            f"API returned an error for {input_file}: {result['error']}",
+            file=sys.stderr,
+        )
     else:
         # Report error if output_files are not in the response
         print(
