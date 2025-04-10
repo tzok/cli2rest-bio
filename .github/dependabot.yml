@@ -102,3 +102,15 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+      
+  - package-ecosystem: "docker"
+    directory: "/rnapolis/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    assignees:
+      - "tzok"
+    labels:
+      - "dependencies"
+      - "docker"
