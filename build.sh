@@ -27,8 +27,8 @@ for dir in */; do
 	# Special handling for 'reduce' to get the latest tag
 	if [ "$dir" == "reduce" ]; then
 		echo "Fetching latest Reduce tag..."
-		# Fetch tags, sort by version, get the last one, extract the tag name
-		REDUCE_VERSION=$(git ls-remote --tags --sort="v:refname" https://github.com/rlabduke/reduce.git | tail -n1 | sed 's/.*\///')
+		# Fetch tags, sort by version, get the last one, extract the tag name, remove ^{} if present
+		REDUCE_VERSION=$(git ls-remote --tags --sort="v:refname" https://github.com/rlabduke/reduce.git | tail -n1 | sed 's/.*\///; s/\^{}//')
 		if [ -z "$REDUCE_VERSION" ]; then
 			echo "Error: Could not fetch Reduce version tag."
 			exit 1
