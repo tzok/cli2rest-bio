@@ -23,11 +23,7 @@ updates:
       github-actions:
         patterns:
           - "*"
-        # Configure auto-merge for non-major updates (implicitly via allowed-update-types?)
-        # Only merge patch and minor version updates, not major
-        allowed-update-types:
-          - "minor"
-          - "patch"
+        # Auto-merging handled by dependabot-auto-merge.yml workflow
 
   # Enable version updates for Python packages
   - package-ecosystem: "pip"
@@ -45,10 +41,7 @@ updates:
       python-packages:
         patterns:
           - "*"
-        # Configure auto-merge for non-major updates (implicitly via allowed-update-types?)
-        allowed-update-types:
-          - "minor"
-          - "patch"
+        # Auto-merging handled by dependabot-auto-merge.yml workflow
 
   # Enable version updates for Python packages in rnapolis
   - package-ecosystem: "pip"
@@ -67,10 +60,7 @@ updates:
       rnapolis-python-packages:
         patterns:
           - "*"
-        # Configure auto-merge for non-major updates (implicitly via allowed-update-types?)
-        allowed-update-types:
-          - "minor"
-          - "patch"
+        # Auto-merging handled by dependabot-auto-merge.yml workflow
 
   # Enable version updates for Docker images in each tool directory
   - package-ecosystem: "docker"
