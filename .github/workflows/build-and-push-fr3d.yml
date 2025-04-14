@@ -14,10 +14,18 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false # Allow other matrix jobs to continue if one fails
+      matrix:
+        branch: [latest, main] # Branches to build from FR3D repo
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Get current date
+        id: date
+        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -34,8 +42,11 @@ jobs:
         with:
           context: ./fr3d
           push: true
+          build-args: |
+            FR3D_BRANCH=${{ matrix.branch }}
           tags: |
-            ghcr.io/tzok/cli2rest-fr3d:latest
-            ghcr.io/tzok/cli2rest-fr3d:${{ github.sha }}
+            ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}-${{ env.DATE }}
+            ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}
+            ${{ matrix.branch == 'latest' && format('ghcr.io/tzok/cli2rest-fr3d:latest') || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

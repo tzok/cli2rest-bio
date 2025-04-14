@@ -10,8 +10,12 @@ RUN apt-get update -y \
       git \
  && rm -rf /var/lib/apt/lists/*
 
-# Clone the FR3D repository
-RUN git clone https://github.com/BGSU-RNA/fr3d-python.git
+# Define build argument for FR3D branch (default to latest)
+ARG FR3D_BRANCH=latest
+
+# Clone the specified branch of the FR3D repository
+RUN echo "Cloning FR3D branch: ${FR3D_BRANCH}" && \
+    git clone --branch ${FR3D_BRANCH} https://github.com/BGSU-RNA/fr3d-python.git
 
 # Install FR3D and its dependencies
 RUN cd fr3d-python && pip3 install -e .
