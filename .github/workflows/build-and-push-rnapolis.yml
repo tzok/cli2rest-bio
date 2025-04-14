@@ -29,6 +29,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract RNAPOLIS version
+        id: get_version
+        run: |
+          VERSION=$(grep 'rnapolis==' rnapolis/requirements.txt | cut -d'=' -f3)
+          echo "Extracted RNAPOLIS version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -37,5 +44,6 @@ jobs:
           tags: |
             ghcr.io/tzok/cli2rest-rnapolis:latest
             ghcr.io/tzok/cli2rest-rnapolis:${{ github.sha }}
+            ghcr.io/tzok/cli2rest-rnapolis:${{ steps.get_version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
