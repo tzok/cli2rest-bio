@@ -35,6 +35,16 @@ for dir in */; do
 		fi
 		echo "Using Reduce version: $REDUCE_VERSION"
 		build_args="--build-arg REDUCE_VERSION=$REDUCE_VERSION"
+	elif [ "$dir" == "rnaview" ]; then
+		echo "Fetching latest RNAView tag..."
+		# Fetch tags, sort by version, get the last one, extract the tag name, remove ^{} if present
+		RNAVIEW_VERSION=$(git ls-remote --tags --sort="v:refname" https://github.com/rcsb/RNAView.git | tail -n1 | sed 's/.*\///; s/\^{}//')
+		if [ -z "$RNAVIEW_VERSION" ]; then
+			echo "Error: Could not fetch RNAView version tag."
+			exit 1
+		fi
+		echo "Using RNAView version: $RNAVIEW_VERSION"
+		build_args="--build-arg RNAVIEW_VERSION=$RNAVIEW_VERSION"
 	fi
 
 	# Enter directory and build the image
