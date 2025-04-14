@@ -21,10 +21,27 @@ for dir in */; do
 
 	echo "Building cli2rest-$dir image..."
 
+	# Build arguments (specific to certain images)
+	build_args=""
+
+	# Special handling for 'reduce' to get the latest tag
+	if [ "$dir" == "reduce" ]; then
+		echo "Fetching latest Reduce tag..."
+		# Fetch tags, sort by version, get the last one, extract the tag name
+		REDUCE_VERSION=$(git ls-remote --tags --sort="v:refname" https://github.com/rlabduke/reduce.git | tail -n1 | sed 's/.*\///')
+		if [ -z "$REDUCE_VERSION" ]; then
+			echo "Error: Could not fetch Reduce version tag."
+			exit 1
+		fi
+		echo "Using Reduce version: $REDUCE_VERSION"
+		build_args="--build-arg REDUCE_VERSION=$REDUCE_VERSION"
+	fi
+
 	# Enter directory and build the image
 	(
 		cd "$dir"
-		docker build -t "ghcr.io/tzok/cli2rest-$dir" .
+		# Pass build arguments if any were set
+		docker build $build_args -t "ghcr.io/tzok/cli2rest-$dir" .
 	)
 	images=(${images[@]} "ghcr.io/tzok/cli2rest-$dir")
 
