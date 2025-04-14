@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false # Allow other matrix jobs to continue if one fails
       matrix:
-        branch: [latest, main] # Branches to build from FR3D repo
+        branch: [latest, master] # Branches to build from FR3D repo
 
     steps:
       - name: Checkout repository
