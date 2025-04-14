@@ -53,7 +53,30 @@ updates:
       allowed-update-types:
         - "minor"
         - "patch"
-        
+
+  # Enable version updates for Python packages in rnapolis
+  - package-ecosystem: "pip"
+    directory: "/rnapolis/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5 # Limit specifically for this tool
+    assignees:
+      - "tzok"
+    labels:
+      - "dependencies"
+      - "python"
+      - "rnapolis"
+    groups:
+      rnapolis-python-packages:
+        patterns:
+          - "*"
+    auto-merge:
+      auto-approve: true
+      allowed-update-types:
+        - "minor"
+        - "patch"
+
   # Enable version updates for Docker images in each tool directory
   - package-ecosystem: "docker"
     directory: "/fr3d/"
