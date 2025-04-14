@@ -33,7 +33,7 @@ jobs:
         id: get_version
         run: |
           # Fetch tags, sort by version, get the last one, extract the tag name
-          LATEST_TAG=$(git ls-remote --tags --sort="v:refname" https://github.com/rlabduke/reduce.git | tail -n1 | sed 's/.*\///')
+          LATEST_TAG=$(git ls-remote --tags --sort="v:refname" https://github.com/rlabduke/reduce.git | tail -n1 | sed 's/.*\///; s/\^{}//')
           echo "Latest Reduce tag: $LATEST_TAG"
           echo "version=$LATEST_TAG" >> $GITHUB_OUTPUT
         shell: bash
