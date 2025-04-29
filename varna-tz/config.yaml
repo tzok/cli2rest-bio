@@ -1,7 +1,0 @@
-name: "varna-tz"
-docker_image: "ghcr.io/tzok/cli2rest-varna-tz:latest"
-arguments:
-  - "wrapper.sh"
-input_file: "input.json"
-output_files:
-  - "clean.svg"

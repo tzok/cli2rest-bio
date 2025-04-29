@@ -1,8 +1,0 @@
-name: "rnaview"
-docker_image: "ghcr.io/tzok/cli2rest-rnaview:latest"
-arguments:
-  - "rnaview"
-  - "input.pdb"
-input_file: "input.pdb"
-output_files:
-  - "input.pdb.out"
