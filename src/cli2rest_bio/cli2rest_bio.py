@@ -1,44 +1,114 @@
 #!/usr/bin/env python3
 import argparse
 import base64
+import importlib.resources
 import os
 import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import docker
 import requests
 import yaml
 
 
-def load_tool_config(config_path):
-    """Load the YAML configuration from the specified path."""
-    # If config_path is a directory, look for config.yaml or config.yml
-    if os.path.isdir(config_path):
-        yaml_path = os.path.join(config_path, "config.yaml")
-        yml_path = os.path.join(config_path, "config.yml")
+def load_tool_config(config_path_str):
+    """
+    Load the YAML configuration.
 
-        if os.path.exists(yaml_path):
-            config_path = yaml_path
-        elif os.path.exists(yml_path):
-            config_path = yml_path
-        else:
+    Tries to load from the path relative to the current working directory first.
+    If not found, falls back to loading from the package's 'configs' directory.
+    Handles both direct file paths and directory paths (looking for config.yaml/yml).
+    """
+    config_to_load = None
+    loaded_from = None
+
+    # --- 1. Check relative to current working directory ---
+    local_path = Path(config_path_str).resolve()  # Resolve to absolute path
+
+    if local_path.is_file():
+        config_to_load = local_path
+        loaded_from = "local file"
+    elif local_path.is_dir():
+        yaml_path = local_path / "config.yaml"
+        yml_path = local_path / "config.yml"
+        if yaml_path.is_file():
+            config_to_load = yaml_path
+            loaded_from = "local directory (config.yaml)"
+        elif yml_path.is_file():
+            config_to_load = yml_path
+            loaded_from = "local directory (config.yml)"
+
+    # --- 2. If not found locally, check package resources ---
+    if config_to_load is None:
+        try:
+            package_configs_path = importlib.resources.files("cli2rest_bio.configs")
+            resource_path = package_configs_path.joinpath(config_path_str)
+
+            if resource_path.is_file():
+                # Need to open via importlib.resources for zip safety
+                with resource_path.open("r") as f:
+                    config = yaml.safe_load(f)
+                loaded_from = f"package resource file ({config_path_str})"
+            elif resource_path.is_dir():
+                yaml_path = resource_path / "config.yaml"
+                yml_path = resource_path / "config.yml"
+                if yaml_path.is_file():
+                    with yaml_path.open("r") as f:
+                        config = yaml.safe_load(f)
+                    loaded_from = (
+                        f"package resource directory ({config_path_str}/config.yaml)"
+                    )
+                elif yml_path.is_file():
+                    with yml_path.open("r") as f:
+                        config = yaml.safe_load(f)
+                    loaded_from = (
+                        f"package resource directory ({config_path_str}/config.yml)"
+                    )
+                else:
+                    # Directory exists in package, but no config.yaml/yml
+                    pass  # Will fall through to error
+
+            # If we loaded config from package resource, return it directly
+            if loaded_from and loaded_from.startswith("package"):
+                # Ensure the config has a name field
+                if "name" not in config:
+                    print(
+                        f"Error: Configuration loaded from {loaded_from} must contain a 'name' field",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                print(f"Configuration loaded from: {loaded_from}", file=sys.stderr)
+                return config
+
+        except (ModuleNotFoundError, FileNotFoundError, NotADirectoryError):
+            # Error finding the resource path itself
+            pass  # Will fall through to error
+
+    # --- 3. Load from the determined local path or raise error ---
+    if config_to_load and config_to_load.is_file():
+        try:
+            with open(config_to_load, "r") as f:
+                config = yaml.safe_load(f)
             print(
-                f"Error: No config.yaml or config.yml found in directory {config_path}",
+                f"Configuration loaded from: {loaded_from} ({config_to_load})",
+                file=sys.stderr,
+            )
+        except Exception as e:
+            print(
+                f"Error reading configuration file {config_to_load}: {e}",
                 file=sys.stderr,
             )
             sys.exit(1)
-
-    if not os.path.exists(config_path):
+    else:
+        # If config_to_load is still None after checking both locations
         print(
-            f"Error: Configuration file not found at {config_path}",
+            f"Error: Configuration '{config_path_str}' not found locally or in package resources.",
             file=sys.stderr,
         )
         sys.exit(1)
-
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
 
     # Ensure the config has a name field
     if "name" not in config:
@@ -299,7 +369,7 @@ def main():
     tool_name = config["name"]
 
     print(f"Using tool: {tool_name}", file=sys.stderr)
-    print(f"Configuration loaded from: {config_path}", file=sys.stderr)
+    # The load_tool_config function now prints where it loaded from
 
     # Get the input files (all arguments after the first one)
     input_files = []

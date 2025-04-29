@@ -4,3 +4,4 @@ recursive-include fr3d *
 recursive-include maxit *
 recursive-include reduce *
 recursive-include rnaview *
+recursive-include src/cli2rest_bio/configs *

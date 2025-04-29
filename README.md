@@ -11,6 +11,7 @@ Currently, the following tools are available:
 - [FR3D](./fr3d/): A tool for RNA structure annotation and classification
 - [RNAPOLIS](./rnapolis/): A tool for RNA structure annotation
 - [RNAView](./rnaview/): A tool for RNA secondary structure annotation
+- [VARNA-TZ](./varna-tz/): A custom tool for RNA 2D structure visualization
 
 ## How It Works
 
@@ -76,6 +77,8 @@ Each tool requires a YAML configuration file that specifies:
 - `input_file` (string, optional, legacy): The relative path expected by the tool for the *single* input file. Use `input_files` for new configurations or multiple inputs.
 - `input_files` (list of strings, optional): A list of relative paths expected by the tool for the input files. The first path in this list corresponds to the primary input file provided on the command line. Subsequent files are inferred based on the primary file's name and location (see `cli2rest-bio.py` for details). Prefer this over `input_file`.
 - `output_files`: List of relative paths for output files to retrieve from the container (optional).
+
+**Note:** Default configuration files for the included tools are packaged within the `src/cli2rest_bio/configs` directory. When you run `cli2rest-bio <config_path> ...`, the tool first looks for `<config_path>` relative to your current directory. If not found, it attempts to load the configuration from the package's internal `configs` directory (e.g., `cli2rest-bio fr3d/config.yaml` will load the packaged `fr3d/config.yaml` if it's not present locally).
 
 Example configuration (reduce/config.yaml):
 ```yaml
@@ -152,6 +155,9 @@ docker pull ghcr.io/tzok/cli2rest-rnapolis:latest
 
 # Pull the RNAView container
 docker pull ghcr.io/tzok/cli2rest-rnaview:latest
+
+# Pull the VARNA-TZ container
+docker pull ghcr.io/tzok/cli2rest-varna-tz:latest
 ```
 
 ## Requirements

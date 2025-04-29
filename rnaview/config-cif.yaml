@@ -1,9 +1,0 @@
-name: "rnaview"
-docker_image: "ghcr.io/tzok/cli2rest-rnaview:latest"
-arguments:
-  - "rnaview"
-  - "--cif"
-  - "input.cif"
-input_file: "input.cif"
-output_files:
-  - "input.cif.out"
