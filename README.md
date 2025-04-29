@@ -11,6 +11,7 @@ Currently, the following tools are available:
 - [FR3D](./fr3d/): A tool for RNA structure annotation and classification
 - [RNAPOLIS](./rnapolis/): A tool for RNA structure annotation
 - [RNAView](./rnaview/): A tool for RNA secondary structure annotation
+- [VARNA-TZ](./varna-tz/): A custom tool for RNA 2D structure visualization
 
 ## How It Works
 
@@ -152,6 +153,9 @@ docker pull ghcr.io/tzok/cli2rest-rnapolis:latest
 
 # Pull the RNAView container
 docker pull ghcr.io/tzok/cli2rest-rnaview:latest
+
+# Pull the VARNA-TZ container
+docker pull ghcr.io/tzok/cli2rest-varna-tz:latest
 ```
 
 ## Requirements
