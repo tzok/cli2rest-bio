@@ -40,9 +40,11 @@ jobs:
       - name: Get latest svgcleaner tag
         id: get_svgcleaner_version
         run: |
-          # Fetch tags, filter for 'v' prefix, sort by version, get the last one, extract the tag name
-          LATEST_TAG=$(git ls-remote --tags --sort="v:refname" https://github.com/RazrFalcon/svgcleaner.git 'v*' | tail -n1 | sed 's/.*\///; s/\^{}//')
-          echo "Latest svgcleaner tag: $LATEST_TAG"
+          # Fetch tags, filter for 'v' prefix, sort by version, get the last one, extract the tag name, remove 'v' prefix
+          LATEST_TAG_WITH_V=$(git ls-remote --tags --sort="v:refname" https://github.com/RazrFalcon/svgcleaner.git 'v*' | tail -n1 | sed 's/.*\///; s/\^{}//')
+          LATEST_TAG=${LATEST_TAG_WITH_V#v} # Remove 'v' prefix
+          echo "Latest svgcleaner tag (with v): $LATEST_TAG_WITH_V"
+          echo "Latest svgcleaner tag (without v): $LATEST_TAG"
           echo "version=$LATEST_TAG" >> $GITHUB_OUTPUT
         shell: bash
 
