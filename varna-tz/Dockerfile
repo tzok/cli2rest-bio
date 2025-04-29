@@ -8,6 +8,7 @@ ARG SVGCLEANER_VERSION=0.9.5
 RUN apt-get update -y \
  && apt-get install -y \
       curl \
+      librsvg2-bin \
       openjdk-17-jre \
  && rm -rf /var/lib/apt/lists/*
 
