@@ -1,0 +1,75 @@
+name: Build and Push cli2rest-rchie image
+
+on:
+  schedule:
+    # Run daily at 1:30 UTC (to avoid overlap with other daily jobs)
+    - cron: '30 1 * * *'
+  workflow_dispatch:  # Allow manual triggering
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest R4RNA version from Bioconductor
+        id: get_r4rna_version
+        run: |
+          R4RNA_INFO=$(curl -s https://bioconductor.org/packages/release/bioc/src/contrib/PACKAGES | grep -A 1 "^Package: R4RNA$")
+          R4RNA_VERSION=$(echo "$R4RNA_INFO" | grep "^Version:" | awk '{print $2}')
+          if [ -z "$R4RNA_VERSION" ]; then
+            echo "Error: Could not fetch R4RNA version."
+            exit 1
+          fi
+          echo "Latest R4RNA version: $R4RNA_VERSION"
+          echo "version=$R4RNA_VERSION" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Get latest svgcleaner tag
+        id: get_svgcleaner_version
+        run: |
+          # Fetch tags, filter for 'v' prefix, sort by version, get the last one, extract the tag name, remove 'v' prefix
+          LATEST_TAG_WITH_V=$(git ls-remote --tags --sort="v:refname" https://github.com/RazrFalcon/svgcleaner.git 'v*' | tail -n1 | sed 's/.*\///; s/\^{}//')
+          LATEST_TAG=${LATEST_TAG_WITH_V#v} # Remove 'v' prefix
+          if [ -z "$LATEST_TAG" ]; then
+            echo "Error: Could not fetch svgcleaner version."
+            exit 1
+          fi
+          echo "Latest svgcleaner tag (with v): $LATEST_TAG_WITH_V"
+          echo "Latest svgcleaner tag (without v): $LATEST_TAG"
+          echo "version=$LATEST_TAG" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./rchie
+          # Pass the fetched tags as build arguments
+          # R4RNA_VERSION is not currently used as an ARG in rchie/Dockerfile for installation,
+          # but SVGCLEANER_VERSION is.
+          build-args: |
+            SVGCLEANER_VERSION=${{ steps.get_svgcleaner_version.outputs.version }}
+          push: true
+          tags: |
+            ghcr.io/tzok/cli2rest-rchie:latest
+            ghcr.io/tzok/cli2rest-rchie:${{ github.sha }}
+            ghcr.io/tzok/cli2rest-rchie:${{ steps.get_r4rna_version.outputs.version }}_${{ steps.get_svgcleaner_version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
