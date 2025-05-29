@@ -117,6 +117,10 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         for interaction in rchie_data["bottom"]
     ]
 
+    # Create integer‐based value lists for R
+    top_val_list_int = [str(color_to_int_map[interaction.get("color")]) for interaction in rchie_data["top"]]
+    bottom_val_list_int = [str(color_to_int_map[interaction.get("color")]) for interaction in rchie_data["bottom"]]
+
     sequence = rchie_data["sequence"]
     # Use title for FASTA header, default to "sequence" if not present or empty
     fasta_header = rchie_data.get("title") or "sequence"
@@ -139,23 +143,26 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         "# Construct helix1 directly from interaction lists",
         f"i_top <- c({','.join(str(i) for i in top_i_list)})",
         f"j_top <- c({','.join(str(j) for j in top_j_list)})",
-        f"val_top <- rep(1L, length(i_top))",
+        f"val_top <- c({','.join(top_val_list_int)})",
         f"helix1 <- data.frame(i = i_top, j = j_top, length = rep(1L, length(i_top)), value = val_top)",
         f"helix1 <- as.helix(helix1, {len(sequence)})",
-        f"helix1$col <- 'gray'",
-        f"helix1$col <- c({','.join(top_val_list)})",
+        # helix1$col assignments replaced by dynamic mapping below
         "",
         "# Construct helix2 directly from interaction lists",
         f"i_bottom <- c({','.join(str(i) for i in bottom_i_list)})",
         f"j_bottom <- c({','.join(str(j) for j in bottom_j_list)})",
-        f"val_bottom <- rep(1L, length(i_bottom))",
+        f"val_bottom <- c({','.join(bottom_val_list_int)})",
         f"helix2 <- data.frame(i = i_bottom, j = j_bottom, length = rep(1L, length(i_bottom)), value = val_bottom)",
         f"helix2 <- as.helix(helix2, {len(sequence)})",
-        f"helix2$col <- 'gray'",
-        f"helix2$col <- c({','.join(bottom_val_list)})",
+        # helix2$col assignments replaced by dynamic mapping below
         "",
     ]
 
+    # Assign colors in R based on integer ‘value’
+    for color, idx in color_to_int_map.items():
+        if color is not None:
+            r_script_lines.append(f"helix1$col[which(helix1$value=={idx})] <- \"{color}\"")
+            r_script_lines.append(f"helix2$col[which(helix2$value=={idx})] <- \"{color}\"")
     r_script_lines.extend(
         [
             "",
