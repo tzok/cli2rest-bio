@@ -1,0 +1,7 @@
+name: "rchie"
+docker_image: "ghcr.io/tzok/cli2rest-rchie:latest"
+arguments:
+  - "wrapper.py"
+input_file: "input.json"
+output_files:
+  - "rchie_output_cleaned.svg"
