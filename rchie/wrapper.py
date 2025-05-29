@@ -118,8 +118,14 @@ def process_rchie_data(rchie_data: RchieData) -> None:
     ]
 
     # Create integer‐based value lists for R
-    top_val_list_int = [str(color_to_int_map[interaction.get("color")]) for interaction in rchie_data["top"]]
-    bottom_val_list_int = [str(color_to_int_map[interaction.get("color")]) for interaction in rchie_data["bottom"]]
+    top_val_list_int = [
+        str(color_to_int_map[interaction.get("color")])
+        for interaction in rchie_data["top"]
+    ]
+    bottom_val_list_int = [
+        str(color_to_int_map[interaction.get("color")])
+        for interaction in rchie_data["bottom"]
+    ]
 
     sequence = rchie_data["sequence"]
     # Use title for FASTA header, default to "sequence" if not present or empty
@@ -161,8 +167,12 @@ def process_rchie_data(rchie_data: RchieData) -> None:
     # Assign colors in R based on integer ‘value’
     for color, idx in color_to_int_map.items():
         if color is not None:
-            r_script_lines.append(f"helix1$col[which(helix1$value=={idx})] <- \"{color}\"")
-            r_script_lines.append(f"helix2$col[which(helix2$value=={idx})] <- \"{color}\"")
+            r_script_lines.append(
+                f'helix1$col[which(helix1$value=={idx})] <- "{color}"'
+            )
+            r_script_lines.append(
+                f'helix2$col[which(helix2$value=={idx})] <- "{color}"'
+            )
     r_script_lines.extend(
         [
             "",
