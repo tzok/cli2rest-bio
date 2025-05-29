@@ -21,7 +21,7 @@ arguments:
   - "wrapper.py"
 input_file: "input.json" # This is the name the input file will have inside the container
 output_files:
-  - "rchie_output_cleaned.svg" # The final SVG output from the wrapper
+  - "clean.svg" # The final SVG output from the wrapper
 ```
 
 Example command:
@@ -34,8 +34,8 @@ This command will:
 1. Start the `ghcr.io/tzok/cli2rest-rchie:latest` Docker container.
 2. Copy `your_input_data.json` into the container as `input.json`.
 3. Execute `wrapper.py input.json` inside the container.
-4. Retrieve `rchie_output_cleaned.svg` from the container.
-5. Save the output locally, prefixed with "rchie" (e.g., `rchie_your_input_data_rchie_output_cleaned.svg`).
+4. Retrieve `clean.svg` from the container.
+5. Save the output locally, prefixed with "rchie" (e.g., `rchie_your_input_data_clean.svg`).
 6. Stop and remove the container.
 
 See the main [README.md](../README.md) for more details on `cli2rest-bio` and general configuration.

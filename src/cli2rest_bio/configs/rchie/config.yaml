@@ -4,4 +4,4 @@ arguments:
   - "wrapper.py"
 input_file: "input.json"
 output_files:
-  - "rchie_output_cleaned.svg"
+  - "clean.svg"

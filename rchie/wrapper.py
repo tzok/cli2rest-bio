@@ -237,7 +237,7 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         print(f"SVG generated at: {svg_path}")
 
         # Clean SVG using svgcleaner
-        cleaned_svg_path = svg_path.replace(".svg", "_cleaned.svg")
+        cleaned_svg_path = "clean.svg"  # Changed to fixed name
         print(f"Cleaning SVG {svg_path} to {cleaned_svg_path}...")
         svgcleaner_cmd = ["svgcleaner", svg_path, cleaned_svg_path]
         process_svgcleaner = subprocess.run(
