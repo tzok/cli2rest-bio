@@ -148,7 +148,7 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         f'sequence_str <- "{sequence}"',
         f'fasta_header_str <- "{fasta_header}"',
         "fasta_data <- Biostrings::BStringSet(setNames(sequence_str, fasta_header_str))",
-        "sequence_name <- names(fasta_data)[1]", # This will pick up fasta_header_str
+        "sequence_name <- names(fasta_data)[1]",  # This will pick up fasta_header_str
         "",
         # Hardcode the output PDF path for R
         f'output_pdf_r_path <- "{output_pdf_path}"',
