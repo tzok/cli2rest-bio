@@ -33,6 +33,32 @@ def load_json_data(file_path: str) -> RchieData:
             raise ValueError("Missing or invalid 'top' interactions in JSON data.")
         if "bottom" not in data or not isinstance(data["bottom"], list):
             raise ValueError("Missing or invalid 'bottom' interactions in JSON data.")
+
+        # Validate 'i' and 'j' in interactions
+        for interaction_list_name in ["top", "bottom"]:
+            interaction_list = data[interaction_list_name]
+            for idx, interaction in enumerate(interaction_list):
+                if not isinstance(interaction, dict):
+                    raise ValueError(
+                        f"Invalid interaction at {interaction_list_name}[{idx}], must be an object."
+                    )
+                i_val = interaction.get("i")
+                j_val = interaction.get("j")
+                # color_val = interaction.get("color") # Optional, can be None or string
+
+                if not isinstance(i_val, int) or i_val <= 0:
+                    raise ValueError(
+                        f"Interaction {interaction_list_name}[{idx}] has invalid 'i' value: {i_val}. Must be a positive integer."
+                    )
+                if not isinstance(j_val, int) or j_val <= 0:
+                    raise ValueError(
+                        f"Interaction {interaction_list_name}[{idx}] has invalid 'j' value: {j_val}. Must be a positive integer."
+                    )
+                # Optional: Validate color if specific constraints exist, e.g., must be string if not None.
+                # if color_val is not None and not isinstance(color_val, str):
+                #     raise ValueError(
+                #         f"Interaction {interaction_list_name}[{idx}] has invalid 'color' value: {color_val}. Must be a string or null."
+                #     )
         return data
     except FileNotFoundError:
         print(f"Error: File not found at {file_path}")
