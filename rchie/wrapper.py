@@ -99,9 +99,19 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         color: i for i, color in enumerate(unique_colors_ordered)
     }
 
-    # Generate output files
-    generate_output_file(rchie_data["top"], color_to_int_map, "output_top.txt")
-    generate_output_file(rchie_data["bottom"], color_to_int_map, "output_bottom.txt")
+    # Prepare interaction lists for direct R data.frame creation
+    top_i_list = [interaction["i"] for interaction in rchie_data["top"]]
+    top_j_list = [interaction["j"] for interaction in rchie_data["top"]]
+    top_val_list = [
+        f'"{interaction.get("color")}"' if interaction.get("color") is not None else "NA"
+        for interaction in rchie_data["top"]
+    ]
+    bottom_i_list = [interaction["i"] for interaction in rchie_data["bottom"]]
+    bottom_j_list = [interaction["j"] for interaction in rchie_data["bottom"]]
+    bottom_val_list = [
+        f'"{interaction.get("color")}"' if interaction.get("color") is not None else "NA"
+        for interaction in rchie_data["bottom"]
+    ]
 
     sequence = rchie_data["sequence"]
     # Use title for FASTA header, default to "sequence" if not present or empty
@@ -122,20 +132,22 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         "fasta_data <- Biostrings::readBStringSet(fasta_path)",
         "sequence_name <- names(fasta_data)[1]",
         "",
-        "helix1 <- readHelix(helix1_path)",
-        "helix2 <- readHelix(helix2_path)",
+        "# Construct helix1 directly from interaction lists",
+        f'i_top <- c({",".join(str(i) for i in top_i_list)})',
+        f'j_top <- c({",".join(str(j) for j in top_j_list)})',
+        f'value_top <- c({",".join(top_val_list)})',
+        f'helix1 <- data.frame(i = i_top, j = j_top, length = rep(1L, length(i_top)), value = value_top)',
+        f'helix1 <- as.helix(helix1, {len(sequence)})',
+        "",
+        "# Construct helix2 directly from interaction lists",
+        f'i_bottom <- c({",".join(str(i) for i in bottom_i_list)})',
+        f'j_bottom <- c({",".join(str(j) for j in bottom_j_list)})',
+        f'value_bottom <- c({",".join(bottom_val_list)})',
+        f'helix2 <- data.frame(i = i_bottom, j = j_bottom, length = rep(1L, length(i_bottom)), value = value_bottom)',
+        f'helix2 <- as.helix(helix2, {len(sequence)})',
         "",
     ]
 
-    # Add color mappings to R script
-    for color, mapped_int in color_to_int_map.items():
-        if color is not None:  # Skip None color, R4RNA will use default
-            r_script_lines.append(
-                f'helix1$col[which(helix1$value=={mapped_int})] <- "{color}"'
-            )
-            r_script_lines.append(
-                f'helix2$col[which(helix2$value=={mapped_int})] <- "{color}"'
-            )
 
     r_script_lines.extend(
         [
