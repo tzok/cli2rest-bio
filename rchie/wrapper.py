@@ -92,24 +92,6 @@ def main() -> None:
         exit(1)
 
 
-def generate_output_file(
-    interactions: List[Interaction],
-    color_map: Dict[Optional[str], int],
-    filename: str,
-) -> None:
-    """Generates an output file based on interactions and color mapping."""
-    with open(filename, "w") as f:
-        f.write(f"#{len(interactions)}\n")
-        f.write("i j length value\n")
-        for interaction in interactions:
-            i = interaction["i"]
-            j = interaction["j"]
-            color = interaction.get("color")  # TypedDict ensures key exists
-            mapped_value = color_map[color]
-            f.write(f"{i} {j} 1 {mapped_value}\n")
-    print(f"Generated output file: {filename}")
-
-
 def process_rchie_data(rchie_data: RchieData) -> None:
     """Processes RchieData to generate color mappings and output files."""
     all_colors: List[Optional[str]] = []
@@ -160,17 +142,16 @@ def process_rchie_data(rchie_data: RchieData) -> None:
 
     r_script_lines = [
         "library(R4RNA)",
-        "library(Biostrings)",  # Explicitly load Biostrings
+        "library(Biostrings)",
         "",
-        "args = commandArgs(trailingOnly=TRUE)",
-        "fasta_path <- args[1]",
-        "helix1_path <- args[2]",
-        "helix2_path <- args[3]",
-        "pdf_path <- args[4]",
+        # Embed sequence and header directly
+        f'sequence_str <- "{sequence}"',
+        f'fasta_header_str <- "{fasta_header}"',
+        "fasta_data <- Biostrings::BStringSet(setNames(sequence_str, fasta_header_str))",
+        "sequence_name <- names(fasta_data)[1]", # This will pick up fasta_header_str
         "",
-        "# Read sequence using Biostrings::readBStringSet",
-        "fasta_data <- Biostrings::readBStringSet(fasta_path)",
-        "sequence_name <- names(fasta_data)[1]",
+        # Hardcode the output PDF path for R
+        f'output_pdf_r_path <- "{output_pdf_path}"',
         "",
         "# Construct helix1 directly from interaction lists",
         f"i_top <- c({','.join(str(i) for i in top_i_list)})",
@@ -209,24 +190,23 @@ def process_rchie_data(rchie_data: RchieData) -> None:
             "# Prepare sequence for plotting (extracting from BStringSet)",
             "sequence_for_plot <- as.character(fasta_data[[1]])",
             "",
-            "plotDoubleCovariance(helix1, helix2, top.msa=sequence_for_plot, bot.msa=NA, main.title=sequence_name, add=FALSE, grid=TRUE, legend=FALSE, scale=FALSE, text=TRUE, lwd=3, pdf=pdf_path)",
+            # Use the hardcoded PDF path variable
+            "plotDoubleCovariance(helix1, helix2, top.msa=sequence_for_plot, bot.msa=NA, main.title=sequence_name, add=FALSE, grid=TRUE, legend=FALSE, scale=FALSE, text=TRUE, lwd=3, pdf=output_pdf_r_path)",
             "",
-            "print(paste('Generated PDF:', pdf_path))",
+            "print(paste('Generated PDF:', output_pdf_r_path))",
         ]
     )
 
     r_script_content = "\n".join(r_script_lines)
 
     # Define fixed filenames for intermediate files
-    seq_file_path = "rchie_sequence.fasta"
+    # seq_file_path = "rchie_sequence.fasta" # No longer needed
     r_script_file_path = "rchie_script.R"
-    # output_top.txt and output_bottom.txt are already fixed names
+    # output_top.txt and output_bottom.txt are no longer generated or used
 
     try:
-        # Create FASTA file for the sequence
-        with open(seq_file_path, "w", encoding="utf-8") as seq_file:
-            seq_file.write(f">{fasta_header}\n{sequence}\n")
-        print(f"Generated sequence FASTA file: {seq_file_path}")
+        # FASTA file creation is removed.
+        # output_top.txt and output_bottom.txt are not generated.
 
         # Create R script file
         with open(r_script_file_path, "w", encoding="utf-8") as r_script_file:
@@ -236,10 +216,7 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         cmd = [
             "Rscript",
             r_script_file_path,
-            seq_file_path,
-            "output_top.txt",  # Generated in current CWD
-            "output_bottom.txt",  # Generated in current CWD
-            output_pdf_path,  # To be created in current CWD
+            # No more file paths as arguments
         ]
 
         print(f"Executing R script: {' '.join(cmd)}")
