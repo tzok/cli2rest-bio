@@ -142,6 +142,7 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         f"val_top <- rep(1L, length(i_top))",
         f"helix1 <- data.frame(i = i_top, j = j_top, length = rep(1L, length(i_top)), value = val_top)",
         f"helix1 <- as.helix(helix1, {len(sequence)})",
+        f"helix1$col <- 'gray'",
         f"helix1$col <- c({','.join(top_val_list)})",
         "",
         "# Construct helix2 directly from interaction lists",
@@ -150,6 +151,7 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         f"val_bottom <- rep(1L, length(i_bottom))",
         f"helix2 <- data.frame(i = i_bottom, j = j_bottom, length = rep(1L, length(i_bottom)), value = val_bottom)",
         f"helix2 <- as.helix(helix2, {len(sequence)})",
+        f"helix2$col <- 'gray'",
         f"helix2$col <- c({','.join(bottom_val_list)})",
         "",
     ]
