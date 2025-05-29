@@ -198,16 +198,9 @@ def process_rchie_data(rchie_data: RchieData) -> None:
     )
 
     r_script_content = "\n".join(r_script_lines)
-
-    # Define fixed filenames for intermediate files
-    # seq_file_path = "rchie_sequence.fasta" # No longer needed
     r_script_file_path = "rchie_script.R"
-    # output_top.txt and output_bottom.txt are no longer generated or used
 
     try:
-        # FASTA file creation is removed.
-        # output_top.txt and output_bottom.txt are not generated.
-
         # Create R script file
         with open(r_script_file_path, "w", encoding="utf-8") as r_script_file:
             r_script_file.write(r_script_content)
@@ -270,10 +263,6 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         # Catch any other unexpected errors during file operations or script prep
         print(f"An unexpected error occurred before or during R script execution: {e}")
         raise  # Re-raise to be caught by main's handler
-    # Intermediate files (seq_file_path, r_script_file_path, output_top.txt,
-    # output_bottom.txt, output_pdf_path, svg_path) are intentionally not
-    # deleted to allow inspection or if they are part of the expected output
-    # in some execution contexts. The final cleaned_svg_path is the primary output.
 
 
 if __name__ == "__main__":
