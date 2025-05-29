@@ -10,15 +10,72 @@ R4RNA is a package for RNA basepair analysis, including the visualization of bas
 
 ### Using the `cli2rest-bio` Tool
 
-The recommended way to use this container is with the `cli2rest-bio` command-line tool provided in the main repository. You will need to create a `config.yaml` file specific to how you want to run R4RNA.
+The recommended way to use this container is with the `cli2rest-bio` command-line tool provided in the main repository.
+The `cli2rest-bio` tool uses a configuration file, typically named `config.yaml` (an example is provided in `src/cli2rest_bio/configs/rchie/config.yaml`), to manage the Docker container and specify input/output behavior.
 
-Example (assuming you have a `rchie/config.yaml`):
-```bash
-# Process an input file (specifics depend on R4RNA usage)
-cli2rest-bio rchie/config.yaml your_input_file
+The `rchie/config.yaml` should look like this:
+```yaml
+name: "rchie"
+docker_image: "ghcr.io/tzok/cli2rest-rchie:latest"
+arguments:
+  - "wrapper.py"
+input_file: "input.json" # This is the name the input file will have inside the container
+output_files:
+  - "rchie_output_cleaned.svg" # The final SVG output from the wrapper
 ```
 
-This tool handles starting the container, sending requests according to your `config.yaml`, saving outputs, and cleaning up. See the main [README.md](../README.md) for more details on `cli2rest-bio`.
+Example command:
+```bash
+# Process an input JSON file using the rchie configuration
+cli2rest-bio rchie/config.yaml your_input_data.json
+```
+
+This command will:
+1. Start the `ghcr.io/tzok/cli2rest-rchie:latest` Docker container.
+2. Copy `your_input_data.json` into the container as `input.json`.
+3. Execute `wrapper.py input.json` inside the container.
+4. Retrieve `rchie_output_cleaned.svg` from the container.
+5. Save the output locally, prefixed with "rchie" (e.g., `rchie_your_input_data_rchie_output_cleaned.svg`).
+6. Stop and remove the container.
+
+See the main [README.md](../README.md) for more details on `cli2rest-bio` and general configuration.
+
+### Input JSON Format
+
+The `wrapper.py` script inside the container expects a single JSON file as input. This file must adhere to the following structure:
+
+```json
+{
+  "sequence": "YOUR_RNA_SEQUENCE_STRING",
+  "title": "Optional Title for the Plot",
+  "top": [
+    {"i": 1, "j": 10, "color": "red"},
+    {"i": 2, "j": 9, "color": "blue"}
+    // ... more interactions for the top arc diagram
+  ],
+  "bottom": [
+    {"i": 20, "j": 30, "color": "#FF00FF"},
+    {"i": 21, "j": 29, "color": null} // null or absent color means default
+    // ... more interactions for the bottom arc diagram
+  ]
+}
+```
+
+**Field Descriptions:**
+
+-   `sequence` (string, required): The RNA sequence.
+-   `title` (string, optional): An optional title for the generated plot. If omitted, "sequence" will be used.
+-   `top` (list of objects, required): A list of interaction objects for the top arc diagram.
+-   `bottom` (list of objects, required): A list of interaction objects for the bottom arc diagram.
+
+**Interaction Object:**
+
+Each interaction object within the `top` and `bottom` lists must have:
+-   `i` (integer, required): The **1-based** starting position of the interaction.
+-   `j` (integer, required): The **1-based** ending position of the interaction.
+-   `color` (string or null, optional): The color for the arc representing this interaction. This can be a color name (e.g., "red", "blue") or a hex code (e.g., "#FF00FF"). If `null` or omitted, a default color assignment strategy is used by the R script.
+
+**Important:** The `i` and `j` indices for interactions **MUST BE 1-BASED**. The R4RNA package, which is used for plotting, expects 1-based indexing for sequence positions. Providing 0-based or invalid indices will lead to errors.
 
 ### Using the REST API Directly
 
