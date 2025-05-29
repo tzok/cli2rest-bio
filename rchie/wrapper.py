@@ -103,13 +103,17 @@ def process_rchie_data(rchie_data: RchieData) -> None:
     top_i_list = [interaction["i"] for interaction in rchie_data["top"]]
     top_j_list = [interaction["j"] for interaction in rchie_data["top"]]
     top_val_list = [
-        f'"{interaction.get("color")}"' if interaction.get("color") is not None else "NA"
+        f'"{interaction.get("color")}"'
+        if interaction.get("color") is not None
+        else "NA"
         for interaction in rchie_data["top"]
     ]
     bottom_i_list = [interaction["i"] for interaction in rchie_data["bottom"]]
     bottom_j_list = [interaction["j"] for interaction in rchie_data["bottom"]]
     bottom_val_list = [
-        f'"{interaction.get("color")}"' if interaction.get("color") is not None else "NA"
+        f'"{interaction.get("color")}"'
+        if interaction.get("color") is not None
+        else "NA"
         for interaction in rchie_data["bottom"]
     ]
 
@@ -133,21 +137,20 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         "sequence_name <- names(fasta_data)[1]",
         "",
         "# Construct helix1 directly from interaction lists",
-        f'i_top <- c({",".join(str(i) for i in top_i_list)})',
-        f'j_top <- c({",".join(str(j) for j in top_j_list)})',
-        f'value_top <- c({",".join(top_val_list)})',
-        f'helix1 <- data.frame(i = i_top, j = j_top, length = rep(1L, length(i_top)), value = value_top)',
-        f'helix1 <- as.helix(helix1, {len(sequence)})',
+        f"i_top <- c({','.join(str(i) for i in top_i_list)})",
+        f"j_top <- c({','.join(str(j) for j in top_j_list)})",
+        f"value_top <- c({','.join(top_val_list)})",
+        f"helix1 <- data.frame(i = i_top, j = j_top, length = rep(1L, length(i_top)), value = value_top)",
+        f"helix1 <- as.helix(helix1, {len(sequence)})",
         "",
         "# Construct helix2 directly from interaction lists",
-        f'i_bottom <- c({",".join(str(i) for i in bottom_i_list)})',
-        f'j_bottom <- c({",".join(str(j) for j in bottom_j_list)})',
-        f'value_bottom <- c({",".join(bottom_val_list)})',
-        f'helix2 <- data.frame(i = i_bottom, j = j_bottom, length = rep(1L, length(i_bottom)), value = value_bottom)',
-        f'helix2 <- as.helix(helix2, {len(sequence)})',
+        f"i_bottom <- c({','.join(str(i) for i in bottom_i_list)})",
+        f"j_bottom <- c({','.join(str(j) for j in bottom_j_list)})",
+        f"value_bottom <- c({','.join(bottom_val_list)})",
+        f"helix2 <- data.frame(i = i_bottom, j = j_bottom, length = rep(1L, length(i_bottom)), value = value_bottom)",
+        f"helix2 <- as.helix(helix2, {len(sequence)})",
         "",
     ]
-
 
     r_script_lines.extend(
         [
