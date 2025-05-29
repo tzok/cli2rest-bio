@@ -164,6 +164,10 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         "",
     ]
 
+    # Initialize col vector for helix1 and helix2 before conditional assignment
+    r_script_lines.append(f"helix1$col <- rep(NA_character_, nrow(helix1))")
+    r_script_lines.append(f"helix2$col <- rep(NA_character_, nrow(helix2))")
+
     # Assign colors in R based on integer ‘value’
     for color, idx in color_to_int_map.items():
         if color is not None:
