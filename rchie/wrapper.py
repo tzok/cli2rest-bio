@@ -209,9 +209,7 @@ def process_rchie_data(rchie_data: RchieData) -> None:
             "# Prepare sequence for plotting (extracting from BStringSet)",
             "sequence_for_plot <- as.character(fasta_data[[1]])",
             "",
-            "pdf(pdf_path)",  # Open PDF device
-            "plotDoubleCovariance(helix1, helix2, top.msa=sequence_for_plot, bot.msa=NA, main.title=sequence_name, add=FALSE, grid=TRUE, legend=FALSE, scale=FALSE, text=TRUE, lwd=3)",
-            "dev.off()",  # Close PDF device
+            "plotDoubleCovariance(helix1, helix2, top.msa=sequence_for_plot, bot.msa=NA, main.title=sequence_name, add=FALSE, grid=TRUE, legend=FALSE, scale=FALSE, text=TRUE, lwd=3, pdf=pdf_path)",
             "",
             "print(paste('Generated PDF:', pdf_path))",
         ]
@@ -259,7 +257,7 @@ def process_rchie_data(rchie_data: RchieData) -> None:
         # Convert PDF to SVG
         svg_path = output_pdf_path.replace(".pdf", ".svg")
         print(f"Converting PDF {output_pdf_path} to SVG {svg_path}...")
-        pdftosvg_cmd = ["pdftosvg", output_pdf_path, svg_path]
+        pdftosvg_cmd = ["pdftocairo", "-svg", output_pdf_path, svg_path]
         process_pdftosvg = subprocess.run(
             pdftosvg_cmd, capture_output=True, text=True, check=True
         )
