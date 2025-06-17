@@ -5,6 +5,7 @@ FROM ghcr.io/tzok/cli2rest:latest
 RUN apt-get update -y \
  && apt-get install -y \
       build-essential \
+      gfortran \
       git \
  && rm -rf /var/lib/apt/lists/*
 
