@@ -13,6 +13,7 @@ Currently, the following tools are available:
 - [RNAView](./rnaview/): A tool for RNA secondary structure annotation
 - [R-Chie](./rchie/): A tool for RNA 2D structure visualization using R4RNA, producing arc diagrams.
 - [VARNA-TZ](./varna-tz/): A custom tool for RNA 2D structure visualization
+- [BPNet](./bpnet/): A tool for computing base pair networks in DNA/RNA structures
 
 ## How It Works
 
@@ -57,6 +58,12 @@ cli2rest-bio maxit/config-pdb2cif.yaml sample.pdb
 
 # Example with R-Chie for arc diagram visualization
 cli2rest-bio rchie/config.yaml your_rchie_input.json
+
+# Example with BPNet for base pair network analysis (mmCIF files)
+cli2rest-bio bpnet/config-cif.yaml sample.cif
+
+# Example with BPNet for base pair network analysis (PDB files)
+cli2rest-bio bpnet/config-pdb.yaml sample.pdb
 
 # Process multiple files
 cli2rest-bio fr3d/config.yaml sample1.cif sample2.cif sample3.cif
@@ -165,6 +172,9 @@ docker pull ghcr.io/tzok/cli2rest-rchie:latest
 
 # Pull the VARNA-TZ container
 docker pull ghcr.io/tzok/cli2rest-varna-tz:latest
+
+# Pull the BPNet container
+docker pull ghcr.io/tzok/cli2rest-bpnet:latest
 ```
 
 ## Requirements

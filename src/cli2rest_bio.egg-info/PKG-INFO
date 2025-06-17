@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: cli2rest-bio
-Version: 0.1.0
+Version: 0.1.2
 Summary: CLI to REST API wrapper for bioinformatics tools
 Author-email: Tomasz Zok <tomasz.zok@cs.put.poznan.pl>
-License: MIT
+License-Expression: MIT
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
@@ -26,7 +25,9 @@ Currently, the following tools are available:
 - [FR3D](./fr3d/): A tool for RNA structure annotation and classification
 - [RNAPOLIS](./rnapolis/): A tool for RNA structure annotation
 - [RNAView](./rnaview/): A tool for RNA secondary structure annotation
+- [R-Chie](./rchie/): A tool for RNA 2D structure visualization using R4RNA, producing arc diagrams.
 - [VARNA-TZ](./varna-tz/): A custom tool for RNA 2D structure visualization
+- [BPNet](./bpnet/): A tool for computing base pair networks in DNA/RNA structures
 
 ## How It Works
 
@@ -69,6 +70,15 @@ cli2rest-bio reduce/config.yaml sample.pdb
 # Example with MaxiT for PDB to CIF conversion
 cli2rest-bio maxit/config-pdb2cif.yaml sample.pdb
 
+# Example with R-Chie for arc diagram visualization
+cli2rest-bio rchie/config.yaml your_rchie_input.json
+
+# Example with BPNet for base pair network analysis (mmCIF files)
+cli2rest-bio bpnet/config-cif.yaml sample.cif
+
+# Example with BPNet for base pair network analysis (PDB files)
+cli2rest-bio bpnet/config-pdb.yaml sample.pdb
+
 # Process multiple files
 cli2rest-bio fr3d/config.yaml sample1.cif sample2.cif sample3.cif
 
@@ -92,6 +102,8 @@ Each tool requires a YAML configuration file that specifies:
 - `input_file` (string, optional, legacy): The relative path expected by the tool for the *single* input file. Use `input_files` for new configurations or multiple inputs.
 - `input_files` (list of strings, optional): A list of relative paths expected by the tool for the input files. The first path in this list corresponds to the primary input file provided on the command line. Subsequent files are inferred based on the primary file's name and location (see `cli2rest-bio.py` for details). Prefer this over `input_file`.
 - `output_files`: List of relative paths for output files to retrieve from the container (optional).
+
+**Note:** Default configuration files for the included tools are packaged within the `src/cli2rest_bio/configs` directory. When you run `cli2rest-bio <config_path> ...`, the tool first looks for `<config_path>` relative to your current directory. If not found, it attempts to load the configuration from the package's internal `configs` directory (e.g., `cli2rest-bio fr3d/config.yaml` will load the packaged `fr3d/config.yaml` if it's not present locally).
 
 Example configuration (reduce/config.yaml):
 ```yaml
@@ -169,8 +181,14 @@ docker pull ghcr.io/tzok/cli2rest-rnapolis:latest
 # Pull the RNAView container
 docker pull ghcr.io/tzok/cli2rest-rnaview:latest
 
+# Pull the R-Chie container
+docker pull ghcr.io/tzok/cli2rest-rchie:latest
+
 # Pull the VARNA-TZ container
 docker pull ghcr.io/tzok/cli2rest-varna-tz:latest
+
+# Pull the BPNet container
+docker pull ghcr.io/tzok/cli2rest-bpnet:latest
 ```
 
 ## Requirements
