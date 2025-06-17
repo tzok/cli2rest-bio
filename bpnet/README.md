@@ -1,10 +1,14 @@
 # BPNet Docker Container
 
-This repository contains a Dockerfile for building a container with the [BPNet](https://github.com/computational-biology/bpnet) tool wrapped in the CLI2REST API.
+This repository contains a Dockerfile for building a container with the [BPNet](https://github.com/computational-biology/bpnet) and [MetBP](https://github.com/computational-biology/metbp) tools wrapped in the CLI2REST API.
 
 ## What is BPNet?
 
 BPNet is software for computing base pair networks found in DNA/RNA. The software also calculates the overlap based network computations. It was developed by the computational biology team and can analyze nucleic acid structures to identify base pair interactions and network properties.
+
+## What is MetBP?
+
+MetBP is a standalone command-line tool for detection and analysis of metal-ion and base pair interactions. It detects and analyzes metal interactions with RNA (and DNA) base pairs from crystal structure files stored in mmCIF or PDB format. The program provides results in plain text as well as machine-readable JSON and CSV formats.
 
 ## Usage
 
@@ -13,11 +17,13 @@ BPNet is software for computing base pair networks found in DNA/RNA. The softwar
 The recommended way to use this container is with the `cli2rest-bio` command-line tool provided in the main repository:
 
 ```bash
-# Process a single structure file
+# Process a single structure file with BPNet
 cli2rest-bio bpnet/config.yaml your_structure.cif
 
-# Process multiple structure files
+# Process multiple structure files with BPNet
 cli2rest-bio bpnet/config.yaml *.cif *.pdb
+
+# Note: MetBP is also available in this container but requires separate configuration
 ```
 
 This tool handles starting the container, sending requests according to `bpnet/config.yaml`, saving outputs (stdout/stderr prefixed with `bpnet-`), and cleaning up. See the main [README.md](../README.md) for more details on `cli2rest-bio`.
@@ -121,4 +127,18 @@ For a complete list of options, see the [BPNet documentation](https://github.com
 
 ## Input Formats
 
-BPNet accepts both mmCIF and PDB file formats.
+Both BPNet and MetBP accept mmCIF and PDB file formats.
+
+## MetBP Usage
+
+MetBP is also included in this container for analyzing metal-ion and base pair interactions. It can be used via the CLI2REST API by creating appropriate configuration files. MetBP generates various output files including:
+
+- `.sum` - Summary file with structure statistics
+- `.met` - Main output file with metal and base pair interaction details
+- `.det` - Detailed metal binding site information
+- `.pml` - PyMOL visualization script
+- `_metbp.json` - Metal-base pair interactions in JSON format
+
+MetBP supports various command-line options for customizing analysis, including hydrogen bond distance cutoffs, chain-specific analysis, and different analysis modes (bp/nuc/all/dev).
+
+For detailed MetBP documentation, see the [MetBP repository](https://github.com/computational-biology/metbp).
