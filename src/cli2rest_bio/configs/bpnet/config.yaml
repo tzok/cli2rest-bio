@@ -1,0 +1,18 @@
+docker_image: "ghcr.io/tzok/cli2rest-bpnet:latest"
+command: "bpnet.linux"
+input_files:
+  - "input.cif"
+output_files:
+  - "input_rna.pdb"
+  - "input.out"
+  - "input.adj"
+  - "input.fasta"
+  - "input.dbn"
+  - "input.bpseq"
+  - "input.dat"
+  - "input.hlx"
+  - "input_rna.pml"
+  - "input_cif.pml"
+  - "input.ps"
+  - "input_helix.pml"
+  - "input.html"
