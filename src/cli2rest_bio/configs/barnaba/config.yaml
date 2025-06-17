@@ -1,0 +1,11 @@
+name: "barnaba"
+docker_image: "ghcr.io/tzok/cli2rest-barnaba:latest"
+arguments:
+  - "barnaba"
+  - "ANNOTATE"
+  - "--pdb"
+  - "input.pdb"
+input_file: "input.pdb"
+output_files:
+  - "outfile.ANNOTATE.pairing.out"
+  - "outfile.ANNOTATE.stacking.out"

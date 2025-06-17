@@ -15,6 +15,7 @@ Currently, the following tools are available:
 - [VARNA-TZ](./varna-tz/): A custom tool for RNA 2D structure visualization
 - [BPNet](./bpnet/): A tool for computing base pair networks in DNA/RNA structures
 - [MC-Annotate](./mc-annotate/): A tool for RNA and DNA structure annotation
+- [Barnaba](./barnaba/): A tool for analyzing RNA three-dimensional structures and simulations
 
 ## How It Works
 
@@ -179,6 +180,9 @@ docker pull ghcr.io/tzok/cli2rest-bpnet:latest
 
 # Pull the MC-Annotate container
 docker pull ghcr.io/tzok/cli2rest-mc-annotate:latest
+
+# Pull the Barnaba container
+docker pull ghcr.io/tzok/cli2rest-barnaba:latest
 ```
 
 ## Requirements
