@@ -136,6 +136,12 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        "--output-dir",
+        type=str,
+        help="Directory to save output files. If not provided, outputs are saved next to input files.",
+    )
+
+    parser.add_argument(
         "--api-url",
         type=str,
         help="REST API URL endpoint (e.g., http://localhost:8000). If provided, no Docker container will be created.",
@@ -214,11 +220,12 @@ def stop_docker_container(container):
     container.remove()
 
 
-def process_file(input_file, config, args, base_url, tool_name):
+def process_file(input_file, config, args, base_url, tool_name, output_dir_base):
     """Process a single input file using the specified tool configuration."""
     # Get file information
     input_base = os.path.splitext(os.path.basename(input_file))[0]
-    input_dir = os.path.dirname(os.path.abspath(input_file))
+    # Determine the effective output directory
+    effective_output_dir = output_dir_base or os.path.dirname(os.path.abspath(input_file))
 
     print(f"Processing file: {input_file}", file=sys.stderr)
 
@@ -306,10 +313,11 @@ def process_file(input_file, config, args, base_url, tool_name):
 
             # Create the file path with tool_name prefix
             prefixed_output_path = os.path.join(
-                input_dir, f"{tool_name}-{input_base}-{relative_path}"
+                effective_output_dir, f"{tool_name}-{input_base}-{relative_path}"
             )
 
-            # Create output directory if it doesn't exist
+            # Create output directory if it doesn't exist (should be created in main if specified,
+            # but good to have here for robustness if output_dir_base is None and relative_path contains subdirs)
             os.makedirs(os.path.dirname(prefixed_output_path), exist_ok=True)
 
             # Write the decoded content (binary mode)
@@ -336,12 +344,12 @@ def process_file(input_file, config, args, base_url, tool_name):
         )
 
     # Always create stdout and stderr files
-    stdout_path = os.path.join(input_dir, f"{tool_name}-{input_base}-stdout.txt")
+    stdout_path = os.path.join(effective_output_dir, f"{tool_name}-{input_base}-stdout.txt")
     with open(stdout_path, "w") as f:
         f.write(result["stdout"])
     print(f"Saved stdout to: {stdout_path}", file=sys.stderr)
 
-    stderr_path = os.path.join(input_dir, f"{tool_name}-{input_base}-stderr.txt")
+    stderr_path = os.path.join(effective_output_dir, f"{tool_name}-{input_base}-stderr.txt")
     with open(stderr_path, "w") as f:
         f.write(result.get("stderr", ""))
     print(f"Saved stderr to: {stderr_path}", file=sys.stderr)
@@ -384,6 +392,11 @@ def main():
     container = None
     base_url = args.api_url
 
+    # Create output directory if specified and it doesn't exist
+    if args.output_dir:
+        os.makedirs(args.output_dir, exist_ok=True)
+        print(f"Output directory set to: {args.output_dir}", file=sys.stderr)
+
     if base_url:
         # Using external API
         print(f"Using external API at: {base_url}", file=sys.stderr)
@@ -400,7 +413,13 @@ def main():
         with ThreadPoolExecutor(max_workers=args.threads) as executor:
             futures = [
                 executor.submit(
-                    process_file, input_file, config, args, base_url, tool_name
+                    process_file,
+                    input_file,
+                    config,
+                    args,
+                    base_url,
+                    tool_name,
+                    args.output_dir,
                 )
                 for input_file in input_files
             ]
