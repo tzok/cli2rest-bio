@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cli2rest-bio
-Version: 0.1.5
+Version: 0.1.6
 Summary: CLI to REST API wrapper for bioinformatics tools
 Author-email: Tomasz Zok <tomasz.zok@cs.put.poznan.pl>
 License-Expression: MIT
