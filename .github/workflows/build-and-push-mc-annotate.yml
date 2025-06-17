@@ -29,13 +29,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get MC-Annotate version
+        id: mc-annotate-version
+        run: |
+          # Extract version from the MC-Tools webpage
+          VERSION=$(curl -s https://major.iric.ca/MajorLabEn/MC-Tools.html | grep -oP 'MC-Annotate\.zip.*?version\K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          if [ -z "$VERSION" ]; then
+            # Fallback to known version if extraction fails
+            VERSION="1.6.2"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "MC-Annotate version: $VERSION"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./mc-annotate
           push: true
+          build-args: |
+            MC_ANNOTATE_VERSION=${{ steps.mc-annotate-version.outputs.version }}
           tags: |
             ghcr.io/tzok/cli2rest-mc-annotate:latest
             ghcr.io/tzok/cli2rest-mc-annotate:${{ github.sha }}
+            ghcr.io/tzok/cli2rest-mc-annotate:${{ steps.mc-annotate-version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
