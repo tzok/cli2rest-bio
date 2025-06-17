@@ -20,7 +20,8 @@ src/cli2rest_bio.egg-info/dependency_links.txt
 src/cli2rest_bio.egg-info/entry_points.txt
 src/cli2rest_bio.egg-info/requires.txt
 src/cli2rest_bio.egg-info/top_level.txt
-src/cli2rest_bio/configs/bpnet/config.yaml
+src/cli2rest_bio/configs/bpnet/config-cif.yaml
+src/cli2rest_bio/configs/bpnet/config-pdb.yaml
 src/cli2rest_bio/configs/fr3d/config.yaml
 src/cli2rest_bio/configs/maxit/config-cif2mmcif.yaml
 src/cli2rest_bio/configs/maxit/config-cif2pdb.yaml
