@@ -14,10 +14,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false # Allow other matrix jobs to continue if one fails
-      matrix:
-        tag: [master, v0.1.7] # Tags to build from barnaba repo
 
     steps:
       - name: Checkout repository
@@ -26,6 +22,18 @@ jobs:
       - name: Get current date
         id: date
         run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
+      - name: Get latest barnaba tag
+        id: barnaba-tag
+        run: |
+          # Get the latest tag from the barnaba repository
+          LATEST_TAG=$(curl -s https://api.github.com/repos/srnas/barnaba/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+            # Fallback to master if no releases found
+            LATEST_TAG="master"
+          fi
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Barnaba latest tag: $LATEST_TAG"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -43,10 +51,10 @@ jobs:
           context: ./barnaba
           push: true
           build-args: |
-            BARNABA_TAG=${{ matrix.tag }}
+            BARNABA_TAG=${{ steps.barnaba-tag.outputs.tag }}
           tags: |
-            ghcr.io/tzok/cli2rest-barnaba:${{ matrix.tag }}-${{ env.DATE }}
-            ghcr.io/tzok/cli2rest-barnaba:${{ matrix.tag }}
-            ${{ matrix.tag == 'master' && format('ghcr.io/tzok/cli2rest-barnaba:latest') || '' }}
+            ghcr.io/tzok/cli2rest-barnaba:${{ steps.barnaba-tag.outputs.tag }}-${{ env.DATE }}
+            ghcr.io/tzok/cli2rest-barnaba:${{ steps.barnaba-tag.outputs.tag }}
+            ghcr.io/tzok/cli2rest-barnaba:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
