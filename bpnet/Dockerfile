@@ -38,6 +38,10 @@ RUN mkdir -p /usr/local/bin/bpnet-sysfiles \
 RUN cp /bpnet-src/bin/bpnet.linux /usr/local/bin/ \
  && cp /metbp-src/bin/metbp.linux /usr/local/bin/
 
+# Copy and make the wrapper script executable
+COPY wrapper.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/wrapper.sh
+
 # Set the required environment variable
 ENV NUCLEIC_ACID_DIR=/usr/local/bin/bpnet-sysfiles/
 
