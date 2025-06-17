@@ -14,6 +14,7 @@ Currently, the following tools are available:
 - [R-Chie](./rchie/): A tool for RNA 2D structure visualization using R4RNA, producing arc diagrams.
 - [VARNA-TZ](./varna-tz/): A custom tool for RNA 2D structure visualization
 - [BPNet](./bpnet/): A tool for computing base pair networks in DNA/RNA structures
+- [MC-Annotate](./mc-annotate/): A tool for RNA and DNA structure annotation
 
 ## How It Works
 
@@ -175,6 +176,9 @@ docker pull ghcr.io/tzok/cli2rest-varna-tz:latest
 
 # Pull the BPNet container
 docker pull ghcr.io/tzok/cli2rest-bpnet:latest
+
+# Pull the MC-Annotate container
+docker pull ghcr.io/tzok/cli2rest-mc-annotate:latest
 ```
 
 ## Requirements
