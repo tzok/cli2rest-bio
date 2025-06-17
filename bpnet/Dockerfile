@@ -14,6 +14,10 @@ RUN git clone https://github.com/computational-biology/bpnet.git /bpnet-src
 # Set working directory
 WORKDIR /bpnet-src
 
+# Copy and apply the patch
+COPY 001-change-chain-separatator.patch /tmp/
+RUN patch -p0 < /tmp/001-change-chain-separatator.patch
+
 # Build bpnet
 RUN cd src \
  && make clean \
