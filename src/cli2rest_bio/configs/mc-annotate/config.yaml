@@ -1,0 +1,7 @@
+name: "mc-annotate"
+docker_image: "ghcr.io/tzok/cli2rest-mc-annotate:latest"
+arguments:
+  - "MC-Annotate"
+  - "input.pdb"
+input_file: "input.pdb"
+output_files: []
