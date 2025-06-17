@@ -73,8 +73,11 @@ cli2rest-bio maxit/config-pdb2cif.yaml sample.pdb
 # Example with R-Chie for arc diagram visualization
 cli2rest-bio rchie/config.yaml your_rchie_input.json
 
-# Example with BPNet for base pair network analysis
-cli2rest-bio bpnet/config.yaml sample.cif
+# Example with BPNet for base pair network analysis (mmCIF files)
+cli2rest-bio bpnet/config-cif.yaml sample.cif
+
+# Example with BPNet for base pair network analysis (PDB files)
+cli2rest-bio bpnet/config-pdb.yaml sample.pdb
 
 # Process multiple files
 cli2rest-bio fr3d/config.yaml sample1.cif sample2.cif sample3.cif
