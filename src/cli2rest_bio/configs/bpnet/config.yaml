@@ -1,9 +1,0 @@
-name: "bpnet"
-docker_image: "ghcr.io/tzok/cli2rest-bpnet:latest"
-arguments:
-  - "wrapper.sh"
-  - "input.cif"
-input_file: "input.cif"
-output_files:
-  - "input_basepair.json"
-  - "input.rob"
