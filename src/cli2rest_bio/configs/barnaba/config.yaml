@@ -6,4 +6,6 @@ arguments:
   - "--pdb"
   - "input.pdb"
 input_file: "input.pdb"
-output_files: []
+output_files:
+  - "outfile.ANNOTATE.pairing.out"
+  - "outfile.ANNOTATE.stacking.out"

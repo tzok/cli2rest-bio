@@ -57,17 +57,28 @@ curl -X POST http://localhost:8000/run-command \
 
 The `cli2rest-bio` tool saves the following output files (prefixed with `barnaba-<input_base_name>-`):
 
-- `stdout.txt`: Standard output from barnaba containing the annotation results
+- `outfile.ANNOTATE.pairing.out`: Base pairing annotations
+- `outfile.ANNOTATE.stacking.out`: Base stacking annotations
+- `stdout.txt`: Standard output from barnaba
 - `stderr.txt`: Standard error from barnaba
 
-The API response itself contains the `stdout`, `stderr`, `exit_code`. The annotation results will be in the stdout field. Example snippet of the JSON response:
+The API response itself contains the `stdout`, `stderr`, `exit_code`, and the content of the requested output files encoded in base64 within the `output_files` list. Example snippet of the JSON response:
 
 ```json
 {
   "exit_code": 0,
   "stdout": "# Barnaba annotation results...",
   "stderr": "",
-  "output_files": []
+  "output_files": [
+    {
+      "relative_path": "outfile.ANNOTATE.pairing.out",
+      "content_base64": "IyBG..."
+    },
+    {
+      "relative_path": "outfile.ANNOTATE.stacking.out",
+      "content_base64": "IyBG..."
+    }
+  ]
 }
 ```
 
