@@ -35,8 +35,8 @@ RUN mkdir -p /usr/local/bin/bpnet-sysfiles \
  && cp -r /metbp-src/sys/* /usr/local/bin/bpnet-sysfiles/
 
 # Copy the binaries to a standard location
-RUN cp /bpnet-src/bin/bpnet.linux /usr/local/bin/ \
- && cp /metbp-src/bin/metbp.linux /usr/local/bin/
+RUN cp /bpnet-src/src/bpnet.linux /usr/local/bin/ \
+ && cp /metbp-src/src/metbp.linux /usr/local/bin/
 
 # Copy and make the wrapper script executable
 COPY wrapper.sh /usr/local/bin/
