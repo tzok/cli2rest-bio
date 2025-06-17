@@ -225,7 +225,9 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
     # Get file information
     input_base = os.path.splitext(os.path.basename(input_file))[0]
     # Determine the effective output directory
-    effective_output_dir = output_dir_base or os.path.dirname(os.path.abspath(input_file))
+    effective_output_dir = output_dir_base or os.path.dirname(
+        os.path.abspath(input_file)
+    )
 
     print(f"Processing file: {input_file}", file=sys.stderr)
 
@@ -344,12 +346,16 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
         )
 
     # Always create stdout and stderr files
-    stdout_path = os.path.join(effective_output_dir, f"{tool_name}-{input_base}-stdout.txt")
+    stdout_path = os.path.join(
+        effective_output_dir, f"{tool_name}-{input_base}-stdout.txt"
+    )
     with open(stdout_path, "w") as f:
         f.write(result["stdout"])
     print(f"Saved stdout to: {stdout_path}", file=sys.stderr)
 
-    stderr_path = os.path.join(effective_output_dir, f"{tool_name}-{input_base}-stderr.txt")
+    stderr_path = os.path.join(
+        effective_output_dir, f"{tool_name}-{input_base}-stderr.txt"
+    )
     with open(stderr_path, "w") as f:
         f.write(result.get("stderr", ""))
     print(f"Saved stderr to: {stderr_path}", file=sys.stderr)
