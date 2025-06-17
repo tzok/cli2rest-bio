@@ -142,6 +142,13 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        "--output-prefix-format",
+        type=str,
+        default="{tool_name}-{input_base}-",
+        help="Format string for output file prefixes. Available placeholders: {tool_name}, {input_base}. Default: '{tool_name}-{input_base}-'",
+    )
+
+    parser.add_argument(
         "--api-url",
         type=str,
         help="REST API URL endpoint (e.g., http://localhost:8000). If provided, no Docker container will be created.",
@@ -229,6 +236,11 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
         os.path.abspath(input_file)
     )
 
+    # Format the output prefix
+    output_prefix = args.output_prefix_format.format(
+        tool_name=tool_name, input_base=input_base
+    )
+
     print(f"Processing file: {input_file}", file=sys.stderr)
 
     # Get configuration directly from the YAML
@@ -313,9 +325,9 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
                 )
                 continue  # Skip this file
 
-            # Create the file path with tool_name prefix
+            # Create the file path with the formatted prefix
             prefixed_output_path = os.path.join(
-                effective_output_dir, f"{tool_name}-{input_base}-{relative_path}"
+                effective_output_dir, f"{output_prefix}{relative_path}"
             )
 
             # Create output directory if it doesn't exist (should be created in main if specified,
@@ -346,16 +358,12 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
         )
 
     # Always create stdout and stderr files
-    stdout_path = os.path.join(
-        effective_output_dir, f"{tool_name}-{input_base}-stdout.txt"
-    )
+    stdout_path = os.path.join(effective_output_dir, f"{output_prefix}stdout.txt")
     with open(stdout_path, "w") as f:
         f.write(result["stdout"])
     print(f"Saved stdout to: {stdout_path}", file=sys.stderr)
 
-    stderr_path = os.path.join(
-        effective_output_dir, f"{tool_name}-{input_base}-stderr.txt"
-    )
+    stderr_path = os.path.join(effective_output_dir, f"{output_prefix}stderr.txt")
     with open(stderr_path, "w") as f:
         f.write(result.get("stderr", ""))
     print(f"Saved stderr to: {stderr_path}", file=sys.stderr)
