@@ -1,7 +1,9 @@
+name: "bpnet"
 docker_image: "ghcr.io/tzok/cli2rest-bpnet:latest"
-command: "bpnet.linux"
-input_files:
+arguments:
+  - "bpnet.linux"
   - "input.cif"
+input_file: "input.cif"
 output_files:
   - "input_rna.pdb"
   - "input.out"
