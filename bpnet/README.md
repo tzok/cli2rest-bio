@@ -30,7 +30,7 @@ cli2rest-bio bpnet/config-cif.yaml structure1.cif
 cli2rest-bio bpnet/config-pdb.yaml structure2.pdb
 ```
 
-This tool handles starting the container, sending requests according to `bpnet/config.yaml`, saving outputs (stdout/stderr prefixed with `bpnet-`), and cleaning up. See the main [README.md](../README.md) for more details on `cli2rest-bio`.
+This tool handles starting the container, sending requests according to the appropriate configuration file, saving outputs (stdout/stderr prefixed with `bpnet-`), and cleaning up. See the main [README.md](../README.md) for more details on `cli2rest-bio`.
 
 ## Building the Container
 
