@@ -6,6 +6,13 @@ This repository contains a Dockerfile for building a container with the [DSSR](h
 
 DSSR (Dissecting the Spatial Structure of RNA) is a component of the 3DNA software suite for analyzing nucleic acid structures. It identifies and annotates various structural features in DNA and RNA structures, including base pairs, multiplets, helices, stems, hairpin loops, bulges, and junctions.
 
+**Important Licensing Notice:** DSSR is licensed by Columbia Technology Ventures and is not freely available. You must:
+1. Request a license from Columbia Technology Ventures
+2. Download the `x3dna-dssr` binary according to their licensing terms
+3. Place the binary in the `dssr/` directory before building the container
+
+Without the licensed binary, this container cannot be built or used.
+
 ## Building the Container
 
 To build the container, run:
@@ -92,5 +99,9 @@ For more information about DSSR and its options, visit: http://x3dna.org/
 
 ## Requirements
 
-- The `x3dna-dssr` binary must be present in the `dssr/` directory before building the container
+- **License Required:** You must obtain a license for DSSR from Columbia Technology Ventures
+- The `x3dna-dssr` binary must be manually downloaded and placed in the `dssr/` directory before building the container
 - The binary should be compatible with the Linux environment used in the base image
+- Contact Columbia Technology Ventures for licensing information and to obtain the binary
+
+**Note:** This container cannot be built without the licensed `x3dna-dssr` binary.
