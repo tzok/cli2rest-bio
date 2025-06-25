@@ -184,9 +184,6 @@ docker pull ghcr.io/tzok/cli2rest-mc-annotate:latest
 
 # Pull the Barnaba container
 docker pull ghcr.io/tzok/cli2rest-barnaba:latest
-
-# Pull the DSSR container
-docker pull ghcr.io/tzok/cli2rest-dssr:latest
 ```
 
 ## Requirements
