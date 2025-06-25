@@ -16,6 +16,7 @@ Currently, the following tools are available:
 - [BPNet](./bpnet/): A tool for computing base pair networks in DNA/RNA structures
 - [MC-Annotate](./mc-annotate/): A tool for RNA and DNA structure annotation
 - [Barnaba](./barnaba/): A tool for analyzing RNA three-dimensional structures and simulations
+- [DSSR](./dssr/): A tool for analyzing nucleic acid structures and identifying structural features
 
 ## How It Works
 
@@ -183,6 +184,9 @@ docker pull ghcr.io/tzok/cli2rest-mc-annotate:latest
 
 # Pull the Barnaba container
 docker pull ghcr.io/tzok/cli2rest-barnaba:latest
+
+# Pull the DSSR container
+docker pull ghcr.io/tzok/cli2rest-dssr:latest
 ```
 
 ## Requirements

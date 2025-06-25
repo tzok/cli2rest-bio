@@ -1,0 +1,11 @@
+name: "dssr"
+docker_image: "ghcr.io/tzok/cli2rest-dssr:latest"
+arguments:
+  - "x3dna-dssr"
+  - "-i=input.cif"
+  - "-o=output.json"
+  - "--json"
+  - "-auxfile=no"
+input_file: "input.cif"
+output_files:
+  - "output.json"
