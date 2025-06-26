@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import argparse
 import base64
+import gzip
 import importlib.resources
 import os
 import sys
+import tempfile
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -154,6 +156,12 @@ def parse_arguments():
         help="REST API URL endpoint (e.g., http://localhost:8000). If provided, no Docker container will be created.",
     )
 
+    parser.add_argument(
+        "--no-auto-ungzip",
+        action="store_true",
+        help="Disable automatic ungzipping of .gz input files (enabled by default)",
+    )
+
     # Add config file and input files as positional arguments
     parser.add_argument(
         "config_and_input_files",
@@ -252,14 +260,32 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
 
     # Prepare input files for the 'files' parameter
     files_to_upload = {}
+    temp_file = None
+    
     # Get the input file path from config
     input_file_config_path = config.get("input_file")
     if input_file_config_path:
         try:
+            # Check if we need to ungzip the file
+            actual_input_file = input_file
+            if not args.no_auto_ungzip and input_file.endswith('.gz'):
+                print(f"Ungzipping {input_file}...", file=sys.stderr)
+                # Create a temporary file
+                temp_file = tempfile.NamedTemporaryFile(delete=False)
+                temp_file.close()  # Close the file handle so we can write to it
+                
+                # Ungzip the input file to the temporary file
+                with gzip.open(input_file, 'rb') as gz_file:
+                    with open(temp_file.name, 'wb') as temp_out:
+                        temp_out.write(gz_file.read())
+                
+                actual_input_file = temp_file.name
+                print(f"Ungzipped to temporary file: {actual_input_file}", file=sys.stderr)
+            
             # Open in binary mode for requests 'files' parameter
             # Use the field name expected by the FastAPI server ("input_files")
             # and pass the configured filename within the tuple.
-            file_object = open(input_file, "rb")
+            file_object = open(actual_input_file, "rb")
             files_to_upload["input_files"] = (input_file_config_path, file_object)
         except FileNotFoundError:
             print(f"Error: Input file {input_file} not found.", file=sys.stderr)
@@ -293,6 +319,10 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
         # Ensure uploaded files are closed
         for _, f in files_to_upload.values():
             f.close()
+        
+        # Clean up temporary file if it was created
+        if temp_file and os.path.exists(temp_file.name):
+            os.unlink(temp_file.name)
 
     if response.status_code != 200:
         print(f"Error processing {input_file}: {response.text}", file=sys.stderr)
