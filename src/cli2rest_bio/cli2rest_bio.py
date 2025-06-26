@@ -261,27 +261,29 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
     # Prepare input files for the 'files' parameter
     files_to_upload = {}
     temp_file = None
-    
+
     # Get the input file path from config
     input_file_config_path = config.get("input_file")
     if input_file_config_path:
         try:
             # Check if we need to ungzip the file
             actual_input_file = input_file
-            if not args.no_auto_ungzip and input_file.endswith('.gz'):
+            if not args.no_auto_ungzip and input_file.endswith(".gz"):
                 print(f"Ungzipping {input_file}...", file=sys.stderr)
                 # Create a temporary file
                 temp_file = tempfile.NamedTemporaryFile(delete=False)
                 temp_file.close()  # Close the file handle so we can write to it
-                
+
                 # Ungzip the input file to the temporary file
-                with gzip.open(input_file, 'rb') as gz_file:
-                    with open(temp_file.name, 'wb') as temp_out:
+                with gzip.open(input_file, "rb") as gz_file:
+                    with open(temp_file.name, "wb") as temp_out:
                         temp_out.write(gz_file.read())
-                
+
                 actual_input_file = temp_file.name
-                print(f"Ungzipped to temporary file: {actual_input_file}", file=sys.stderr)
-            
+                print(
+                    f"Ungzipped to temporary file: {actual_input_file}", file=sys.stderr
+                )
+
             # Open in binary mode for requests 'files' parameter
             # Use the field name expected by the FastAPI server ("input_files")
             # and pass the configured filename within the tuple.
@@ -319,7 +321,7 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
         # Ensure uploaded files are closed
         for _, f in files_to_upload.values():
             f.close()
-        
+
         # Clean up temporary file if it was created
         if temp_file and os.path.exists(temp_file.name):
             os.unlink(temp_file.name)
