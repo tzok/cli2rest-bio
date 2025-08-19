@@ -24,7 +24,7 @@ RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       curl \
       librsvg2-bin \
-      openjdk-17-jre-headless \
+      openjdk-21-jre-headless \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy the built JAR from the builder stage
