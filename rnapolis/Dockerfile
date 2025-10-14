@@ -7,6 +7,7 @@ RUN apt-get update -y \
       python3 \
       python3-pip \
       python3-dev \
+      cmake \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file and install dependencies
