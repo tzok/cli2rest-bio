@@ -1,12 +1,10 @@
-tool: inkscape
-image: ghcr.io/tzok/cli2rest-inkscape:latest
-command:
-  - inkscape
-  - input.svg
-  - --export-type=png
-  - --export-filename=output.png
-input_files:
-  - filename: input.svg
-    content: "{file_content}"
+name: "inkscape"
+docker_image: "ghcr.io/tzok/cli2rest-inkscape:latest"
+arguments:
+  - "inkscape"
+  - "input.svg"
+  - "--export-area-drawing"
+  - "--export-filename=output.png"
+input_file: "input.svg"
 output_files:
-  - output.png
+  - "output.png"
