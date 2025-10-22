@@ -1,11 +1,9 @@
 name: "inkscape"
 docker_image: "ghcr.io/tzok/cli2rest-inkscape:latest"
 arguments:
-  - "inkscape"
-  - "input.eps"
-  - "--export-area-drawing"
-  - "--export-plain-svg"
-  - "--export-filename=output.svg"
+  - "bash"
+  - "-c"
+  - "gs -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile=input.pdf input.eps && inkscape --export-area-drawing --export-plain-svg --export-filename=output.svg input.pdf"
 input_file: "input.eps"
 output_files:
   - "output.svg"
