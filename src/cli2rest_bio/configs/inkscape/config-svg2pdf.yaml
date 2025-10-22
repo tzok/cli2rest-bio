@@ -1,0 +1,12 @@
+tool: inkscape
+image: ghcr.io/tzok/cli2rest-inkscape:latest
+command:
+  - inkscape
+  - input.svg
+  - --export-type=pdf
+  - --export-filename=output.pdf
+input_files:
+  - filename: input.svg
+    content: "{file_content}"
+output_files:
+  - output.pdf
