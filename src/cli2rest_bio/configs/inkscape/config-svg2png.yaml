@@ -1,0 +1,10 @@
+name: "inkscape"
+docker_image: "ghcr.io/tzok/cli2rest-inkscape:latest"
+arguments:
+  - "inkscape"
+  - "input.svg"
+  - "--export-area-drawing"
+  - "--export-filename=output.png"
+input_file: "input.svg"
+output_files:
+  - "output.png"
