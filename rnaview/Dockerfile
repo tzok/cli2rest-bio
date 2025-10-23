@@ -3,18 +3,13 @@ FROM debian:stable AS builder
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       build-essential \
-      ca-certificates \
-      git \
-      make \
  && rm -rf /var/lib/apt/lists/*
 
-ARG RNAVIEW_VERSION
+ARG RNAVIEW_VERSION=master
 
-RUN git clone https://github.com/rcsb/RNAView.git /RNAView
+ADD https://github.com/rcsb/RNAView.git#${RNAVIEW_VERSION} /RNAView
 
 RUN cd /RNAView \
- && git fetch --tags \
- && git checkout tags/${RNAVIEW_VERSION} \
  && make
 
 #######################################

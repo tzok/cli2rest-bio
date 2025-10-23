@@ -2,15 +2,14 @@ FROM ghcr.io/tzok/cli2rest:latest AS builder
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      gcc \
-      git \
-      libc6-dev \
+      build-essential \
  && rm -rf /var/lib/apt/lists/*
 
 ARG FR3D_BRANCH=latest
-RUN git clone --branch ${FR3D_BRANCH} https://github.com/BGSU-RNA/fr3d-python.git
 
-RUN cd fr3d-python \
+ADD https://github.com/BGSU-RNA/fr3d-python.git#${FR3D_BRANCH} /fr3d-python
+
+RUN cd /fr3d-python \
  && . /opt/venv/bin/activate \
  && pip install --upgrade pip \
  && pip install .

@@ -5,25 +5,22 @@ FROM debian:stable AS builder
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       build-essential \
-      ca-certificates \
       gfortran \
-      git \
  && rm -rf /var/lib/apt/lists/*
 
 # Clone the bpnet repository into /bpnet-src
-RUN git clone https://github.com/computational-biology/bpnet.git /bpnet-src
+ADD https://github.com/computational-biology/bpnet.git /bpnet-src
 
 # Copy and apply the patch
-COPY 001-change-chain-separatator.patch /tmp/
-RUN cd /bpnet-src && patch -p0 < /tmp/001-change-chain-separatator.patch
-
-# Build bpnet
-RUN cd /bpnet-src/src \
+COPY 001-change-chain-separatator.patch /bpnet-src/
+RUN cd /bpnet-src \
+ && patch -p0 < 001-change-chain-separatator.patch \
+ && cd src \
  && make clean \
  && make
 
 # Clone the metbp repository into /metbp-src
-RUN git clone https://github.com/computational-biology/metbp.git /metbp-src
+ADD https://github.com/computational-biology/metbp.git /metbp-src
 
 # Build metbp
 RUN cd /metbp-src \
