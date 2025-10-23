@@ -3,6 +3,7 @@ FROM debian:stable AS builder
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       build-essential \
+      ca-certificates \
       cmake \
       git \
  && rm -rf /var/lib/apt/lists/*
