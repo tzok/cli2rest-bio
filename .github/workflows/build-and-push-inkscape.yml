@@ -5,6 +5,7 @@ on:
     # Run daily at 1:00 UTC
     - cron: '0 1 * * *'
   workflow_dispatch:  # Allow manual triggering
+  pull_request:
   push:
     branches: [ main ]
 
@@ -23,6 +24,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -33,9 +35,34 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./inkscape
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
+          load: true
           tags: |
+            cli2rest-inkscape:test
             ghcr.io/tzok/cli2rest-inkscape:latest
             ghcr.io/tzok/cli2rest-inkscape:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        run: |
+          docker run --name cli2rest-inkscape-test -d -p 8000 cli2rest-inkscape:test
+          sleep 5 # Wait for container to start
+          HOST_PORT=$(docker port cli2rest-inkscape-test 8000 | cut -d: -f2)
+          curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
+
+          pip install .
+          echo '<svg height="233" width="526" xmlns="http://www.w3.org/2000/svg"><rect fill="none" height="200" rx="50" ry="100" stroke="#00f" stroke-width="10" width="500" x="13" y="14"/></svg>' > example.svg
+
+          cli2rest-bio --api-url http://localhost:$HOST_PORT src/cli2rest_bio/configs/inkscape/config-svg2png.yaml example.svg
+
+          for f in inkscape-example-output.png inkscape-example-stdout.txt inkscape-example-stderr.txt; do
+            if [ ! -f "$f" ]; then
+              echo "Test failed: Output file $f is missing."
+              ls -l
+              exit 1
+            fi
+          done
+          echo "Test passed: All output files created."
+
+          docker stop cli2rest-inkscape-test

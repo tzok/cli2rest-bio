@@ -1,27 +1,26 @@
-# Start from the specified base image
-FROM ghcr.io/tzok/cli2rest:latest
+FROM ghcr.io/tzok/cli2rest:latest AS builder
 
-# Install necessary build dependencies
-RUN apt-get update -y \
- && apt-get install -y \
-      python3 \
-      python3-pip \
-      python3-dev \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      bison \
+      build-essential \
       cmake \
       flex \
-      bison \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements file and install dependencies
-COPY requirements.txt /app/requirements.txt
-RUN pip3 install --no-cache-dir -r /app/requirements.txt
+COPY requirements.txt .
 
-# Copy the wrapper scripts
+RUN . /opt/venv/bin/activate \
+ && pip install --upgrade pip \
+ && pip install -r requirements.txt
+
+#######################################
+
+FROM ghcr.io/tzok/cli2rest:latest
+
+COPY --from=builder /opt/venv /opt/venv
+
 COPY unifier-wrapper.py /usr/local/bin/unifier-wrapper.py
 COPY splitter-wrapper.py /usr/local/bin/splitter-wrapper.py
 RUN chmod +x /usr/local/bin/unifier-wrapper.py
 RUN chmod +x /usr/local/bin/splitter-wrapper.py
-
-# Make sure the installed binary and script are in the PATH
-# (pip install usually handles this, but ensure /usr/local/bin or similar is in PATH)
-ENV PATH="/usr/local/bin:${PATH}"
