@@ -4,7 +4,9 @@ ARG FR3D_BRANCH=latest
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
+      gcc \
       git \
+      libc6-dev \
  && rm -rf /var/lib/apt/lists/*
 
 RUN echo "Cloning FR3D branch: ${FR3D_BRANCH}" && \
