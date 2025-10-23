@@ -28,6 +28,7 @@ FROM ghcr.io/tzok/cli2rest:latest
 
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
+        poppler-utils \
         r-base \
     && rm -rf /var/lib/apt/lists/*
 
