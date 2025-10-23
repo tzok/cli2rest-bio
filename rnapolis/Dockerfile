@@ -2,6 +2,7 @@ FROM ghcr.io/tzok/cli2rest:latest AS builder
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
+      build-essentials \
       cmake \
       flex \
       bison \
