@@ -5,6 +5,7 @@ on:
     # Run daily at 1:00 UTC
     - cron: '0 1 * * *'
   workflow_dispatch:  # Allow manual triggering
+  pull_request:
   push:
     branches: [ main ]
 
@@ -23,6 +24,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -56,7 +58,7 @@ jobs:
           build-args: |
             VARNA_TZ_VERSION=${{ steps.get_varna_version.outputs.version }}
             SVGCLEANER_VERSION=${{ steps.get_svgcleaner_version.outputs.version }}
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ghcr.io/tzok/cli2rest-varna-tz:latest
             ghcr.io/tzok/cli2rest-varna-tz:${{ github.sha }}
