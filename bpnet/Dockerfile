@@ -1,12 +1,13 @@
-# Start from the specified base image
-FROM ghcr.io/tzok/cli2rest:latest
+# Builder stage based on Debian Slim
+FROM debian:bookworm-slim AS builder
 
 # Install necessary build dependencies
 RUN apt-get update -y \
- && apt-get install -y \
+ && apt-get install -y --no-install-recommends \
       build-essential \
       gfortran \
       git \
+      patch \
  && rm -rf /var/lib/apt/lists/*
 
 # Clone the bpnet repository into /bpnet-src
@@ -29,14 +30,17 @@ RUN cd /metbp-src \
  && make clean \
  && make
 
-# Create directory for system files and copy them
-RUN mkdir -p /usr/local/bin/bpnet-sysfiles \
- && cp -r /bpnet-src/sysfiles/* /usr/local/bin/bpnet-sysfiles/ \
- && cp -r /metbp-src/sys/* /usr/local/bin/bpnet-sysfiles/
+# Final stage
+FROM ghcr.io/tzok/cli2rest:latest
 
-# Copy the binaries to a standard location
-RUN cp /bpnet-src/src/bpnet.linux /usr/local/bin/ \
- && cp /metbp-src/bin/metbp.linux /usr/local/bin/
+# Create directory for system files and copy them from builder
+RUN mkdir -p /usr/local/bin/bpnet-sysfiles
+COPY --from=builder /bpnet-src/sysfiles/* /usr/local/bin/bpnet-sysfiles/
+COPY --from=builder /metbp-src/sys/* /usr/local/bin/bpnet-sysfiles/
+
+# Copy the binaries from builder to a standard location
+COPY --from=builder /bpnet-src/src/bpnet.linux /usr/local/bin/
+COPY --from=builder /metbp-src/bin/metbp.linux /usr/local/bin/
 
 # Copy and make the wrapper script executable
 COPY wrapper.sh /usr/local/bin/
