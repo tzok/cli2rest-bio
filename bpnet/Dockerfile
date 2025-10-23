@@ -8,7 +8,6 @@ RUN apt-get update -y \
       ca-certificates \
       gfortran \
       git \
-      patch \
  && rm -rf /var/lib/apt/lists/*
 
 # Clone the bpnet repository into /bpnet-src
@@ -32,7 +31,7 @@ RUN cd /metbp-src \
  && make
 
 #######################################
-# Final stage
+
 FROM ghcr.io/tzok/cli2rest:latest
 
 # Create directory for system files and copy them from builder
@@ -50,6 +49,3 @@ RUN chmod +x /usr/local/bin/wrapper.sh
 
 # Set the required environment variable
 ENV NUCLEIC_ACID_DIR=/usr/local/bin/bpnet-sysfiles/
-
-# Make sure the installed binary is in the PATH
-ENV PATH="/usr/local/bin:${PATH}"

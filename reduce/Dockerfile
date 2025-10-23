@@ -1,7 +1,7 @@
 FROM debian:stable AS builder
 
 RUN apt-get update -y \
- && apt-get install -y \
+ && apt-get install -y --no-install-recommends \
       build-essential \
       cmake \
       git \
@@ -13,7 +13,7 @@ ARG REDUCE_VERSION
 
 RUN cd /reduce-src \
  && git fetch --tags \
- && git checkout tags/${REDUCE_VERSION}
+ && git checkout tags/${REDUCE_VERSION} \
  && mkdir build \
  && cd build \
  && cmake -DCMAKE_INSTALL_PREFIX=/opt/reduce .. \
