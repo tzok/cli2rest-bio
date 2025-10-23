@@ -1,10 +1,11 @@
-# Builder stage based on Debian Slim
-FROM debian:bookworm-slim AS builder
+# Builder stage based on Debian stable
+FROM debian:stable AS builder
 
 # Install necessary build dependencies
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       build-essential \
+      ca-certificates \
       gfortran \
       git \
       patch \
@@ -30,6 +31,7 @@ RUN cd /metbp-src \
  && make clean \
  && make
 
+#######################################
 # Final stage
 FROM ghcr.io/tzok/cli2rest:latest
 
@@ -51,4 +53,3 @@ ENV NUCLEIC_ACID_DIR=/usr/local/bin/bpnet-sysfiles/
 
 # Make sure the installed binary is in the PATH
 ENV PATH="/usr/local/bin:${PATH}"
-
