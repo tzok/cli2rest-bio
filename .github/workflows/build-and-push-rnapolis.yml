@@ -43,9 +43,19 @@ jobs:
         with:
           context: ./rnapolis
           push: ${{ github.event_name != 'pull_request' }}
+          load: true
           tags: |
+            cli2rest-rnapolis:test
             ghcr.io/tzok/cli2rest-rnapolis:latest
             ghcr.io/tzok/cli2rest-rnapolis:${{ github.sha }}
             ghcr.io/tzok/cli2rest-rnapolis:${{ steps.get_version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        run: |
+          docker run --name cli2rest-rnapolis-test -d -p 8000 cli2rest-rnapolis:test
+          sleep 5 # Wait for container to start
+          HOST_PORT=$(docker port cli2rest-rnapolis-test 8000 | cut -d: -f2)
+          curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
+          docker stop cli2rest-rnapolis-test

@@ -64,10 +64,21 @@ jobs:
         with:
           context: ./rnaview
           push: ${{ github.event_name != 'pull_request' }}
+          load: true
           # Pass the fetched tag as a build argument
           build-args: |
             RNAVIEW_VERSION=${{ steps.get_version.outputs.version }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            cli2rest-rnaview:test
+            ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        run: |
+          docker run --name cli2rest-rnaview-test -d -p 8000 cli2rest-rnaview:test
+          sleep 5 # Wait for container to start
+          HOST_PORT=$(docker port cli2rest-rnaview-test 8000 | cut -d: -f2)
+          curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
+          docker stop cli2rest-rnaview-test

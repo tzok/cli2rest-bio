@@ -45,9 +45,19 @@ jobs:
         with:
           context: ./bpnet
           push: ${{ github.event_name != 'pull_request' }}
+          load: true
           tags: |
+            cli2rest-bpnet:test
             ghcr.io/tzok/cli2rest-bpnet:latest
             ghcr.io/tzok/cli2rest-bpnet:${{ github.sha }}
             ghcr.io/tzok/cli2rest-bpnet:${{ steps.get_version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        run: |
+          docker run --name cli2rest-bpnet-test -d -p 8000 cli2rest-bpnet:test
+          sleep 5 # Wait for container to start
+          HOST_PORT=$(docker port cli2rest-bpnet-test 8000 | cut -d: -f2)
+          curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
+          docker stop cli2rest-bpnet-test
