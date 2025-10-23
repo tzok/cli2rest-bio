@@ -59,11 +59,11 @@ jobs:
             type=raw,value=${{ steps.get_version.outputs.version }} # Add the fetched tag
             type=sha,format=short
 
-      - name: Build and push Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./rnaview
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
           load: true
           # Pass the fetched tag as a build argument
           build-args: |
@@ -97,3 +97,8 @@ jobs:
           echo "Test passed: All output files created."
 
           docker stop cli2rest-rnaview-test
+
+      - name: Push Docker image
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push --all-tags ghcr.io/tzok/cli2rest-rnaview

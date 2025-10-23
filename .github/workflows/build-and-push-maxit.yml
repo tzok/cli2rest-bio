@@ -38,11 +38,11 @@ jobs:
           echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
           echo "Latest MAXIT version: $LATEST_VERSION"
 
-      - name: Build and push Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./maxit
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
           load: true
           build-args: |
             MAXIT_VERSION=${{ steps.maxit-version.outputs.version }}
@@ -76,3 +76,8 @@ jobs:
           echo "Test passed: All output files created."
 
           docker stop cli2rest-maxit-test
+
+      - name: Push Docker image
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push --all-tags ghcr.io/tzok/cli2rest-maxit

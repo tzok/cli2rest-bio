@@ -59,16 +59,15 @@ jobs:
           echo "version=$LATEST_TAG" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Build and push Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./rchie
           # Pass the fetched tags as build arguments
-          # R4RNA_VERSION is not currently used as an ARG in rchie/Dockerfile for installation,
-          # but SVGCLEANER_VERSION is.
           build-args: |
+            R4RNA_VERSION=${{ steps.get_r4rna_version.outputs.version }}
             SVGCLEANER_VERSION=${{ steps.get_svgcleaner_version.outputs.version }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
           load: true
           tags: |
             ghcr.io/tzok/cli2rest-rchie:test
@@ -115,3 +114,8 @@ jobs:
           echo "Test passed: All output files created."
 
           docker stop cli2rest-rchie-test
+
+      - name: Push Docker image
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push --all-tags ghcr.io/tzok/cli2rest-rchie

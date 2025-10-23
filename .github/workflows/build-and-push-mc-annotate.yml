@@ -43,11 +43,11 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "MC-Annotate version: $VERSION"
 
-      - name: Build and push Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./mc-annotate
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
           load: true
           build-args: |
             MC_ANNOTATE_VERSION=${{ steps.mc-annotate-version.outputs.version }}
@@ -81,3 +81,8 @@ jobs:
           echo "Test passed: All output files created."
 
           docker stop cli2rest-mc-annotate-test
+
+      - name: Push Docker image
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push --all-tags ghcr.io/tzok/cli2rest-mc-annotate
