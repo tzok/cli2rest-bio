@@ -61,4 +61,19 @@ jobs:
           sleep 5 # Wait for container to start
           HOST_PORT=$(docker port cli2rest-fr3d-test-${{ matrix.branch }} 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
+
+          pip install .
+          curl -L -o 1ehz.cif https://files.rcsb.org/download/1EHZ.cif
+
+          cli2rest-bio --api-url http://localhost:$HOST_PORT src/cli2rest_bio/configs/fr3d/config.yaml 1ehz.cif
+
+          for f in fr3d-1ehz-stdout.txt fr3d-1ehz-stderr.txt fr3d-1ehz-basepair_detail.txt fr3d-1ehz-stacking.txt fr3d-1ehz-backbone.txt; do
+            if [ ! -f "$f" ]; then
+              echo "Test failed: Output file $f is missing."
+              ls -l
+              exit 1
+            fi
+          done
+          echo "Test passed: All output files created."
+
           docker stop cli2rest-fr3d-test-${{ matrix.branch }}
