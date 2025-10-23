@@ -52,7 +52,7 @@ jobs:
           build-args: |
             MC_ANNOTATE_VERSION=${{ steps.mc-annotate-version.outputs.version }}
           tags: |
-            cli2rest-mc-annotate:test
+            ghcr.io/tzok/cli2rest-mc-annotate:test
             ghcr.io/tzok/cli2rest-mc-annotate:latest
             ghcr.io/tzok/cli2rest-mc-annotate:${{ github.sha }}
             ghcr.io/tzok/cli2rest-mc-annotate:${{ steps.mc-annotate-version.outputs.version }}
@@ -61,7 +61,7 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run --name cli2rest-mc-annotate-test -d -p 8000 cli2rest-mc-annotate:test
+          docker run --name cli2rest-mc-annotate-test -d -p 8000 ghcr.io/tzok/cli2rest-mc-annotate:test
           sleep 5 # Wait for container to start
           HOST_PORT=$(docker port cli2rest-mc-annotate-test 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'

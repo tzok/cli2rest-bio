@@ -69,7 +69,7 @@ jobs:
           build-args: |
             RNAVIEW_VERSION=${{ steps.get_version.outputs.version }}
           tags: |
-            cli2rest-rnaview:test
+            ghcr.io/tzok/cli2rest-rnaview:test
             ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -77,7 +77,7 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run --name cli2rest-rnaview-test -d -p 8000 cli2rest-rnaview:test
+          docker run --name cli2rest-rnaview-test -d -p 8000 ghcr.io/tzok/cli2rest-rnaview:test
           sleep 5 # Wait for container to start
           HOST_PORT=$(docker port cli2rest-rnaview-test 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'

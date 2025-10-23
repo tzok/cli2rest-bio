@@ -50,7 +50,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           load: true
           tags: |
-            cli2rest-reduce:test
+            ghcr.io/tzok/cli2rest-reduce:test
             ghcr.io/tzok/cli2rest-reduce:latest
             ghcr.io/tzok/cli2rest-reduce:${{ github.sha }}
             ghcr.io/tzok/cli2rest-reduce:${{ steps.get_version.outputs.version }}
@@ -59,7 +59,7 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run --name cli2rest-reduce-test -d -p 8000 cli2rest-reduce:test
+          docker run --name cli2rest-reduce-test -d -p 8000 ghcr.io/tzok/cli2rest-reduce:test
           sleep 5 # Wait for container to start
           HOST_PORT=$(docker port cli2rest-reduce-test 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'

@@ -48,7 +48,7 @@ jobs:
           build-args: |
             FR3D_BRANCH=${{ matrix.branch }}
           tags: |
-            cli2rest-fr3d:test-${{ matrix.branch }}
+            ghcr.io/tzok/cli2rest-fr3d:test-${{ matrix.branch }}
             ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}-${{ env.DATE }}
             ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}
             ${{ matrix.branch == 'latest' && format('ghcr.io/tzok/cli2rest-fr3d:latest') || '' }}
@@ -57,7 +57,7 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run --name cli2rest-fr3d-test-${{ matrix.branch }} -d -p 8000 cli2rest-fr3d:test-${{ matrix.branch }}
+          docker run --name cli2rest-fr3d-test-${{ matrix.branch }} -d -p 8000 ghcr.io/tzok/cli2rest-fr3d:test-${{ matrix.branch }}
           sleep 5 # Wait for container to start
           HOST_PORT=$(docker port cli2rest-fr3d-test-${{ matrix.branch }} 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'

@@ -56,7 +56,7 @@ jobs:
           build-args: |
             BARNABA_TAG=${{ steps.barnaba-tag.outputs.tag }}
           tags: |
-            cli2rest-barnaba:test
+            ghcr.io/tzok/cli2rest-barnaba:test
             ghcr.io/tzok/cli2rest-barnaba:${{ steps.barnaba-tag.outputs.tag }}-${{ env.DATE }}
             ghcr.io/tzok/cli2rest-barnaba:${{ steps.barnaba-tag.outputs.tag }}
             ghcr.io/tzok/cli2rest-barnaba:latest
@@ -65,7 +65,7 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run --name cli2rest-barnaba-test -d -p 8000 cli2rest-barnaba:test
+          docker run --name cli2rest-barnaba-test -d -p 8000 ghcr.io/tzok/cli2rest-barnaba:test
           sleep 5 # Wait for container to start
           HOST_PORT=$(docker port cli2rest-barnaba-test 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
