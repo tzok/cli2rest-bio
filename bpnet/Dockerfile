@@ -31,6 +31,11 @@ RUN cd /metbp-src \
 
 FROM ghcr.io/tzok/cli2rest:latest
 
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends \
+      libgfortran5 \
+ && rm -rf /var/lib/apt/lists/*
+
 # Create directory for system files and copy them from builder
 RUN mkdir -p /usr/local/bin/bpnet-sysfiles
 COPY --from=builder /bpnet-src/sysfiles/* /usr/local/bin/bpnet-sysfiles/
