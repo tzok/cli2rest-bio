@@ -26,6 +26,7 @@ src/cli2rest_bio/configs/bpnet/config-pdb.yaml
 src/cli2rest_bio/configs/dssr/config.yaml
 src/cli2rest_bio/configs/fr3d/config.yaml
 src/cli2rest_bio/configs/inkscape/config-eps2svg.yaml
+src/cli2rest_bio/configs/inkscape/config-svg2pdf-with-caption.yaml
 src/cli2rest_bio/configs/inkscape/config-svg2pdf.yaml
 src/cli2rest_bio/configs/inkscape/config-svg2png.yaml
 src/cli2rest_bio/configs/maxit/config-cif2mmcif.yaml

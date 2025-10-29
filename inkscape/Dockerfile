@@ -7,3 +7,5 @@ RUN apt-get update -y \
       ghostscript \
       inkscape \
  && rm -rf /var/lib/apt/lists/*
+
+COPY add-text-to-svg.py /add-text-to-svg.py

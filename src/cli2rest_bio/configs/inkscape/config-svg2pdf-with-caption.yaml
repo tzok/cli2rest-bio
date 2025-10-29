@@ -1,0 +1,11 @@
+name: "inkscape"
+docker_image: "ghcr.io/tzok/cli2rest-inkscape:latest"
+arguments:
+  - "python"
+  - "/add-text-to-svg.py"
+  - "input.svg"
+  - "Caption"
+  - "output.pdf"
+input_file: "input.svg"
+output_files:
+  - "output.pdf"
