@@ -18,7 +18,7 @@ FROM ghcr.io/tzok/cli2rest:latest
 
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
-      librsvg2-bin \
+      inkscape \
       openjdk-21-jre-headless \
  && rm -rf /var/lib/apt/lists/*
 
