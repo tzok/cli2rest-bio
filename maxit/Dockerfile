@@ -9,6 +9,9 @@ RUN apt-get update -y \
 
 ARG MAXIT_VERSION=11.300
 
+ENV CFLAGS="-O3 -pipe -fomit-frame-pointer -march=x86-64 -mtune=generic -DNDEBUG" \
+    CXXFLAGS="-O3 -pipe -fomit-frame-pointer -march=x86-64 -mtune=generic -DNDEBUG"
+
 ADD https://sw-tools.rcsb.org/apps/MAXIT/maxit-v${MAXIT_VERSION}-prod-src.tar.gz /
 
 RUN tar xf maxit-v${MAXIT_VERSION}-prod-src.tar.gz \
