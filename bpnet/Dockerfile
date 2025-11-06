@@ -8,6 +8,13 @@ RUN apt-get update -y \
       gfortran \
  && rm -rf /var/lib/apt/lists/*
 
+ENV CC="gcc" CXX="g++" FC="gfortran" \
+    CFLAGS="-O3 -pipe -fomit-frame-pointer -fno-plt -march=x86-64 -mtune=generic -DNDEBUG" \
+    CXXFLAGS="-O3 -pipe -fomit-frame-pointer -fno-plt -march=x86-64 -mtune=generic -DNDEBUG" \
+    FFLAGS="-O3 -pipe -fomit-frame-pointer -fno-plt -march=x86-64 -mtune=generic" \
+    FCFLAGS="-O3 -pipe -fomit-frame-pointer -fno-plt -march=x86-64 -mtune=generic" \
+    LDFLAGS="-Wl,-O1 -Wl,--as-needed -s"
+
 # Clone the bpnet repository into /bpnet-src
 ADD https://github.com/computational-biology/bpnet.git /bpnet-src
 
