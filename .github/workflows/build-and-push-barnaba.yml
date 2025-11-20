@@ -18,8 +18,7 @@ jobs:
     strategy:
       fail-fast: false # Allow other matrix jobs to continue if one fails
       matrix:
-        # We will determine the latest tag dynamically and include 'master'
-        version_type: [master]
+        version_type: [master, latest_tag] # Build from master branch and latest release tag
 
     steps:
       - name: Checkout repository
@@ -35,21 +34,11 @@ jobs:
           # Get the latest tag from the barnaba repository
           LATEST_TAG=$(curl -s https://api.github.com/repos/srnas/barnaba/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
           if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
-            # If no releases found, we only build 'master'
-            echo "No release tag found. Building only master."
-          else
-            echo "Latest Barnaba tag: $LATEST_TAG"
-            # Set the latest tag as a job output to be used in the next step
-            echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+            # If no releases found, use 'master' as the tag for the 'latest_tag' matrix item
+            LATEST_TAG="master"
           fi
-        shell: bash
-
-      - name: Update matrix with latest tag
-        id: set-matrix
-        if: steps.barnaba-tag.outputs.latest_tag != ''
-        run: |
-          # Append the latest tag to the matrix if found
-          echo "matrix=$(echo '{"version_type": ["master", "${{ steps.barnaba-tag.outputs.latest_tag }}"]}' | jq -c .)" >> $GITHUB_OUTPUT
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Barnaba latest tag: $LATEST_TAG"
         shell: bash
 
       - name: Set up Docker Buildx
