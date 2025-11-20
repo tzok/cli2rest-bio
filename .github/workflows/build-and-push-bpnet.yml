@@ -20,6 +20,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Get current date
+        id: date
+        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -50,6 +54,7 @@ jobs:
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-bpnet:test') || '' }}
             ghcr.io/tzok/cli2rest-bpnet:latest
             ghcr.io/tzok/cli2rest-bpnet:${{ github.sha }}
+            ghcr.io/tzok/cli2rest-bpnet:${{ steps.get_version.outputs.version }}-${{ env.DATE }}
             ghcr.io/tzok/cli2rest-bpnet:${{ steps.get_version.outputs.version }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-bpnet:latest
           cache-to: type=gha,mode=max
