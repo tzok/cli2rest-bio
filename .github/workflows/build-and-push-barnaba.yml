@@ -80,7 +80,7 @@ jobs:
           build-args: |
             BARNABA_TAG=${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}
           tags: |
-            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-barnaba:test-{0}', matrix.version_type) || '' }}
+            ghcr.io/tzok/cli2rest-barnaba:test-${{ matrix.version_type }}
             ghcr.io/tzok/cli2rest-barnaba:${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}-${{ env.DATE }}
             ghcr.io/tzok/cli2rest-barnaba:${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}
             ${{ matrix.version_type == 'master' && format('ghcr.io/tzok/cli2rest-barnaba:latest') || '' }}
