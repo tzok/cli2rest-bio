@@ -24,11 +24,27 @@ jobs:
         id: date
         run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
 
-      - name: Check if latest tag already exists in GHCR
+      - name: Get Inkscape version from base image apt
+        id: get_version
+        run: |
+          # Run a temporary container based on the base image (python:3-slim) to query apt for the Inkscape version
+          # We use 'apt-get update' and 'apt-cache policy inkscape' to find the candidate version.
+          INKSCAPE_VERSION=$(docker run --rm python:3-slim /bin/bash -c "apt-get update > /dev/null && apt-cache policy inkscape | grep Candidate | awk '{print \$2}'")
+          
+          if [ -z "$INKSCAPE_VERSION" ]; then
+            echo "Error: Could not fetch Inkscape version from apt."
+            exit 1
+          fi
+          
+          echo "Inkscape version: $INKSCAPE_VERSION"
+          echo "version=$INKSCAPE_VERSION" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Check if target tag already exists in GHCR
         id: check_tag
         if: github.event_name != 'pull_request'
         run: |
-          TARGET_TAG="ghcr.io/tzok/cli2rest-inkscape:latest"
+          TARGET_TAG="ghcr.io/tzok/cli2rest-inkscape:${{ steps.get_version.outputs.version }}"
           
           if docker manifest inspect "$TARGET_TAG" > /dev/null; then
             echo "Image $TARGET_TAG already exists. Skipping build."
@@ -60,6 +76,7 @@ jobs:
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-inkscape:test') || '' }}
             ghcr.io/tzok/cli2rest-inkscape:latest
+            ghcr.io/tzok/cli2rest-inkscape:${{ steps.get_version.outputs.version }}
             ghcr.io/tzok/cli2rest-inkscape:${{ env.DATE }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-inkscape:latest
           cache-to: type=gha,mode=max
