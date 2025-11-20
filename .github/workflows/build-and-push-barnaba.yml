@@ -25,19 +25,21 @@ jobs:
         run: |
           # Get the latest commit hash for the master branch
           LATEST_COMMIT=$(git ls-remote https://github.com/srnas/barnaba.git HEAD | cut -f1)
+          SHORT_COMMIT=${LATEST_COMMIT:0:7}
           
           echo "Latest Barnaba commit: $LATEST_COMMIT"
           echo "commit_hash=$LATEST_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "short_commit=$SHORT_COMMIT" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Check if target tag already exists in GHCR
         id: check_tag
         if: github.event_name != 'pull_request'
         run: |
-          # Use the commit hash for the version tag check
-          COMMIT_HASH="${{ steps.barnaba-tag.outputs.commit_hash }}"
+          # Use the short commit hash for the version tag check
+          SHORT_COMMIT="${{ steps.barnaba-tag.outputs.short_commit }}"
           BRANCH_NAME="master"
-          TARGET_TAG="ghcr.io/tzok/cli2rest-barnaba:$BRANCH_NAME-$COMMIT_HASH"
+          TARGET_TAG="ghcr.io/tzok/cli2rest-barnaba:$BRANCH_NAME-$SHORT_COMMIT"
           
           if docker manifest inspect "$TARGET_TAG" > /dev/null; then
             echo "Image $TARGET_TAG already exists. Skipping build."
@@ -70,7 +72,7 @@ jobs:
             BARNABA_TAG=${{ steps.barnaba-tag.outputs.commit_hash }}
           tags: |
             ghcr.io/tzok/cli2rest-barnaba:test-master
-            ghcr.io/tzok/cli2rest-barnaba:master-${{ steps.barnaba-tag.outputs.commit_hash }}
+            ghcr.io/tzok/cli2rest-barnaba:master-${{ steps.barnaba-tag.outputs.short_commit }}
             ghcr.io/tzok/cli2rest-barnaba:master
             ghcr.io/tzok/cli2rest-barnaba:latest
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-barnaba:latest

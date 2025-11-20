@@ -40,17 +40,19 @@ jobs:
         run: |
           # Get the latest commit hash for the current matrix branch
           LATEST_COMMIT=$(git ls-remote https://github.com/tzok/fr3d.git ${{ matrix.branch }} | cut -f1)
+          SHORT_COMMIT=${LATEST_COMMIT:0:7}
           echo "Latest FR3D commit for ${{ matrix.branch }}: $LATEST_COMMIT"
           echo "commit_hash=$LATEST_COMMIT" >> $GITHUB_OUTPUT
+          echo "short_commit=$SHORT_COMMIT" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Check if target tag already exists in GHCR
         id: check_tag
         if: github.event_name != 'pull_request'
         run: |
-          COMMIT_HASH="${{ steps.get_commit.outputs.commit_hash }}"
+          SHORT_COMMIT="${{ steps.get_commit.outputs.short_commit }}"
           BRANCH_NAME="${{ matrix.branch }}"
-          TARGET_TAG="ghcr.io/tzok/cli2rest-fr3d:$BRANCH_NAME-$COMMIT_HASH"
+          TARGET_TAG="ghcr.io/tzok/cli2rest-fr3d:$BRANCH_NAME-$SHORT_COMMIT"
           
           if docker manifest inspect "$TARGET_TAG" > /dev/null; then
             echo "Image $TARGET_TAG already exists. Skipping build."
@@ -72,7 +74,7 @@ jobs:
             FR3D_BRANCH=${{ matrix.branch }}
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-fr3d:test-{0}', matrix.branch) || '' }}
-            ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}-${{ steps.get_commit.outputs.commit_hash }}
+            ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}-${{ steps.get_commit.outputs.short_commit }}
             ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}
             ${{ matrix.branch == 'latest' && format('ghcr.io/tzok/cli2rest-fr3d:latest') || '' }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}
