@@ -42,11 +42,25 @@ jobs:
             # Fallback or exit? Let's try a default/fallback for now if tags are unreliable
             # LATEST_TAG="latest_build_$(date +%Y%m%d)" # Example fallback
             # exit 1 # Or exit if tag is mandatory
-            # For now, let's assume tags exist and fail if not found
              exit 1
           fi
           echo "Latest RNAView tag: $LATEST_TAG"
           echo "version=$LATEST_TAG" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Check if target tag already exists in GHCR
+        id: check_tag
+        if: github.event_name != 'pull_request'
+        run: |
+          TARGET_TAG="ghcr.io/tzok/cli2rest-rnaview:${{ steps.get_version.outputs.version }}"
+          
+          if docker manifest inspect "$TARGET_TAG" > /dev/null; then
+            echo "Image $TARGET_TAG already exists. Skipping build."
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "Image $TARGET_TAG not found. Proceeding with build."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
         shell: bash
 
       - name: Extract metadata for Docker
@@ -59,6 +73,7 @@ jobs:
             type=raw,value=${{ steps.get_version.outputs.version }} # Add the fetched tag
 
       - name: Build and Push Docker image
+        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./rnaview
@@ -75,6 +90,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
+        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
         run: |
           docker run --name cli2rest-rnaview-test -d -p 8000 ghcr.io/tzok/cli2rest-rnaview:test
           sleep 5 # Wait for container to start
