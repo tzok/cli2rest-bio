@@ -20,6 +20,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Get current date
+        id: date
+        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -31,27 +35,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get latest BPNet commit
+      - name: Get latest BPNet commit and set version tag
         id: get_version
         run: |
           # Get the latest commit hash from the BPNet repository
           LATEST_COMMIT=$(git ls-remote https://github.com/computational-biology/bpnet.git HEAD | cut -f1)
+          # Use 'master' as the version identifier for tagging purposes
+          VERSION_TAG="master"
           echo "Latest BPNet commit: $LATEST_COMMIT"
-          echo "version=$LATEST_COMMIT" >> $GITHUB_OUTPUT
+          echo "version=$VERSION_TAG" >> $GITHUB_OUTPUT
+          echo "commit_hash=$LATEST_COMMIT" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Build Docker image
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./bpnet
-          push: false
+          # Pass the commit hash as a build argument
+          build-args: |
+            BPNET_VERSION=${{ steps.get_version.outputs.commit_hash }}
+          push: ${{ github.event_name != 'pull_request' }}
           load: true
           tags: |
-            ghcr.io/tzok/cli2rest-bpnet:test
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-bpnet:test') || '' }}
             ghcr.io/tzok/cli2rest-bpnet:latest
-            ghcr.io/tzok/cli2rest-bpnet:${{ github.sha }}
+            ghcr.io/tzok/cli2rest-bpnet:${{ steps.get_version.outputs.version }}-${{ env.DATE }}
             ghcr.io/tzok/cli2rest-bpnet:${{ steps.get_version.outputs.version }}
-          cache-from: type=gha
+          cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-bpnet:latest
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
@@ -77,7 +87,3 @@ jobs:
 
           docker stop cli2rest-bpnet-test
 
-      - name: Push Docker image
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push --all-tags ghcr.io/tzok/cli2rest-bpnet

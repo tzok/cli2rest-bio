@@ -15,6 +15,10 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false # Allow other matrix jobs to continue if one fails
+      matrix:
+        version_type: [master, latest_tag] # Build from master branch and latest release tag
 
     steps:
       - name: Checkout repository
@@ -27,14 +31,17 @@ jobs:
       - name: Get latest barnaba tag
         id: barnaba-tag
         run: |
-          # Get the latest tag from the barnaba repository
-          LATEST_TAG=$(curl -s https://api.github.com/repos/srnas/barnaba/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          # Get the latest tag from the barnaba repository using jq for reliable JSON parsing
+          LATEST_TAG=$(curl -s https://api.github.com/repos/srnas/barnaba/releases/latest | jq -r '.tag_name')
+          
+          # Check if LATEST_TAG is empty or "null" (jq returns "null" if key is missing)
           if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
-            # Fallback to master if no releases found
+            # If no releases found, use 'master' as the tag for the 'latest_tag' matrix item
             LATEST_TAG="master"
           fi
-          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
           echo "Barnaba latest tag: $LATEST_TAG"
+        shell: bash
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -47,27 +54,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./barnaba
-          push: false
+          push: ${{ github.event_name != 'pull_request' }}
           load: true
           build-args: |
-            BARNABA_TAG=${{ steps.barnaba-tag.outputs.tag }}
+            BARNABA_TAG=${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}
           tags: |
-            ghcr.io/tzok/cli2rest-barnaba:test
-            ghcr.io/tzok/cli2rest-barnaba:${{ steps.barnaba-tag.outputs.tag }}-${{ env.DATE }}
-            ghcr.io/tzok/cli2rest-barnaba:${{ steps.barnaba-tag.outputs.tag }}
-            ghcr.io/tzok/cli2rest-barnaba:latest
-          cache-from: type=gha
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-barnaba:test-{0}', matrix.version_type) || '' }}
+            ghcr.io/tzok/cli2rest-barnaba:${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}-${{ env.DATE }}
+            ghcr.io/tzok/cli2rest-barnaba:${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}
+            ${{ matrix.version_type == 'master' && format('ghcr.io/tzok/cli2rest-barnaba:latest') || '' }}
+          cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-barnaba:latest
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
         run: |
-          docker run --name cli2rest-barnaba-test -d -p 8000 ghcr.io/tzok/cli2rest-barnaba:test
+          docker run --name cli2rest-barnaba-test-${{ matrix.version_type }} -d -p 8000 ghcr.io/tzok/cli2rest-barnaba:test-${{ matrix.version_type }}
           sleep 5 # Wait for container to start
-          HOST_PORT=$(docker port cli2rest-barnaba-test 8000 | cut -d: -f2)
+          HOST_PORT=$(docker port cli2rest-barnaba-test-${{ matrix.version_type }} 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
 
           pip install .
@@ -84,9 +91,5 @@ jobs:
           done
           echo "Test passed: All output files created."
 
-          docker stop cli2rest-barnaba-test
+          docker stop cli2rest-barnaba-test-${{ matrix.version_type }}
 
-      - name: Push Docker image
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push --all-tags ghcr.io/tzok/cli2rest-barnaba

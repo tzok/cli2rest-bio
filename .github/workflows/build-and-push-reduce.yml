@@ -40,21 +40,20 @@ jobs:
           echo "version=$LATEST_TAG" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Build Docker image
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./reduce
           # Pass the fetched tag as a build argument
           build-args: |
             REDUCE_VERSION=${{ steps.get_version.outputs.version }}
-          push: false
+          push: ${{ github.event_name != 'pull_request' }}
           load: true
           tags: |
-            ghcr.io/tzok/cli2rest-reduce:test
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-reduce:test') || '' }}
             ghcr.io/tzok/cli2rest-reduce:latest
-            ghcr.io/tzok/cli2rest-reduce:${{ github.sha }}
             ghcr.io/tzok/cli2rest-reduce:${{ steps.get_version.outputs.version }}
-          cache-from: type=gha
+          cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-reduce:latest
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
@@ -80,7 +79,3 @@ jobs:
 
           docker stop cli2rest-reduce-test
 
-      - name: Push Docker image
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push --all-tags ghcr.io/tzok/cli2rest-reduce
