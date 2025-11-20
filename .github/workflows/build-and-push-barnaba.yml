@@ -24,31 +24,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Get current date
-        id: date
-        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
-
-      - name: Get latest barnaba tag
+      - name: Get latest barnaba commit hash
         id: barnaba-tag
         run: |
-          # Get the latest tag from the barnaba repository using jq for reliable JSON parsing
-          LATEST_TAG=$(curl -s https://api.github.com/repos/srnas/barnaba/releases/latest | jq -r '.tag_name')
+          # Get the latest commit hash for the master branch
+          LATEST_COMMIT=$(git ls-remote https://github.com/srnas/barnaba.git HEAD | cut -f1)
           
-          # Check if LATEST_TAG is empty or "null" (jq returns "null" if key is missing)
-          if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
-            # If no releases found, use 'master' as the tag for the 'latest_tag' matrix item
-            LATEST_TAG="master"
-          fi
-          echo "tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
-          echo "Barnaba latest tag: $LATEST_TAG"
+          # Use 'master' as the version identifier for tagging purposes
+          VERSION_TAG="master"
+          
+          echo "Latest Barnaba commit: $LATEST_COMMIT"
+          echo "tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
+          echo "commit_hash=$LATEST_COMMIT" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Check if target tag already exists in GHCR
         id: check_tag
         if: github.event_name != 'pull_request'
         run: |
-          VERSION_TAG="${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}"
-          TARGET_TAG="ghcr.io/tzok/cli2rest-barnaba:$VERSION_TAG"
+          # Use the commit hash for the version tag check
+          COMMIT_HASH="${{ steps.barnaba-tag.outputs.commit_hash }}"
+          BRANCH_NAME="${{ matrix.version_type == 'master' && 'master' || 'latest_tag' }}"
+          TARGET_TAG="ghcr.io/tzok/cli2rest-barnaba:$BRANCH_NAME-$COMMIT_HASH"
           
           if docker manifest inspect "$TARGET_TAG" > /dev/null; then
             echo "Image $TARGET_TAG already exists. Skipping build."
@@ -78,11 +75,10 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           load: true
           build-args: |
-            BARNABA_TAG=${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}
+            BARNABA_TAG=${{ steps.barnaba-tag.outputs.commit_hash }}
           tags: |
             ghcr.io/tzok/cli2rest-barnaba:test-${{ matrix.version_type }}
-            ghcr.io/tzok/cli2rest-barnaba:${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}-${{ env.DATE }}
-            ghcr.io/tzok/cli2rest-barnaba:${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}
+            ghcr.io/tzok/cli2rest-barnaba:${{ matrix.version_type }}-${{ steps.barnaba-tag.outputs.commit_hash }}
             ${{ matrix.version_type == 'master' && format('ghcr.io/tzok/cli2rest-barnaba:latest') || '' }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-barnaba:latest
           cache-to: type=gha,mode=max

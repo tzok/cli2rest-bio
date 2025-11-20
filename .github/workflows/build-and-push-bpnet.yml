@@ -20,10 +20,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Get current date
-        id: date
-        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -40,10 +36,11 @@ jobs:
         run: |
           # Get the latest commit hash from the BPNet repository
           LATEST_COMMIT=$(git ls-remote https://github.com/computational-biology/bpnet.git HEAD | cut -f1)
-          # Use 'master' as the version identifier for tagging purposes
-          VERSION_TAG="master"
+          # Use 'master' as the branch identifier for tagging purposes
+          BRANCH_NAME="master"
+          
           echo "Latest BPNet commit: $LATEST_COMMIT"
-          echo "version=$VERSION_TAG" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "commit_hash=$LATEST_COMMIT" >> $GITHUB_OUTPUT
         shell: bash
 
@@ -51,7 +48,9 @@ jobs:
         id: check_tag
         if: github.event_name != 'pull_request'
         run: |
-          TARGET_TAG="ghcr.io/tzok/cli2rest-bpnet:${{ steps.get_version.outputs.version }}"
+          COMMIT_HASH="${{ steps.get_version.outputs.commit_hash }}"
+          BRANCH_NAME="${{ steps.get_version.outputs.branch }}"
+          TARGET_TAG="ghcr.io/tzok/cli2rest-bpnet:$BRANCH_NAME-$COMMIT_HASH"
           
           if docker manifest inspect "$TARGET_TAG" > /dev/null; then
             echo "Image $TARGET_TAG already exists. Skipping build."
@@ -75,8 +74,8 @@ jobs:
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-bpnet:test') || '' }}
             ghcr.io/tzok/cli2rest-bpnet:latest
-            ghcr.io/tzok/cli2rest-bpnet:${{ steps.get_version.outputs.version }}-${{ env.DATE }}
-            ghcr.io/tzok/cli2rest-bpnet:${{ steps.get_version.outputs.version }}
+            ghcr.io/tzok/cli2rest-bpnet:${{ steps.get_version.outputs.branch }}-${{ steps.get_version.outputs.commit_hash }}
+            ghcr.io/tzok/cli2rest-bpnet:${{ steps.get_version.outputs.branch }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-bpnet:latest
           cache-to: type=gha,mode=max
 
