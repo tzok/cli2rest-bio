@@ -50,7 +50,7 @@ jobs:
           echo "version=$LATEST_TAG" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Build Docker image
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./varna-tz
@@ -58,14 +58,14 @@ jobs:
           build-args: |
             VARNA_TZ_VERSION=${{ steps.get_varna_version.outputs.version }}
             SVGCLEANER_VERSION=${{ steps.get_svgcleaner_version.outputs.version }}
-          push: false
+          push: ${{ github.event_name != 'pull_request' }}
           load: true
           tags: |
             ghcr.io/tzok/cli2rest-varna-tz:test
             ghcr.io/tzok/cli2rest-varna-tz:latest
             ghcr.io/tzok/cli2rest-varna-tz:${{ github.sha }}
             ghcr.io/tzok/cli2rest-varna-tz:${{ steps.get_varna_version.outputs.version }}_${{ steps.get_svgcleaner_version.outputs.version }}
-          cache-from: type=gha
+          cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-varna-tz:latest
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
@@ -113,7 +113,3 @@ jobs:
 
           docker stop cli2rest-varna-tz-test
 
-      - name: Push Docker image
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push --all-tags ghcr.io/tzok/cli2rest-varna-tz

@@ -47,11 +47,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./barnaba
-          push: false
+          push: ${{ github.event_name != 'pull_request' }}
           load: true
           build-args: |
             BARNABA_TAG=${{ steps.barnaba-tag.outputs.tag }}
@@ -60,7 +60,7 @@ jobs:
             ghcr.io/tzok/cli2rest-barnaba:${{ steps.barnaba-tag.outputs.tag }}-${{ env.DATE }}
             ghcr.io/tzok/cli2rest-barnaba:${{ steps.barnaba-tag.outputs.tag }}
             ghcr.io/tzok/cli2rest-barnaba:latest
-          cache-from: type=gha
+          cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-barnaba:latest
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
@@ -86,7 +86,3 @@ jobs:
 
           docker stop cli2rest-barnaba-test
 
-      - name: Push Docker image
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push --all-tags ghcr.io/tzok/cli2rest-barnaba

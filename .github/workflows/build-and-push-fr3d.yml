@@ -39,11 +39,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./fr3d
-          push: false
+          push: ${{ github.event_name != 'pull_request' }}
           load: true
           build-args: |
             FR3D_BRANCH=${{ matrix.branch }}
@@ -52,7 +52,7 @@ jobs:
             ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}-${{ env.DATE }}
             ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}
             ${{ matrix.branch == 'latest' && format('ghcr.io/tzok/cli2rest-fr3d:latest') || '' }}
-          cache-from: type=gha
+          cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
@@ -78,7 +78,3 @@ jobs:
 
           docker stop cli2rest-fr3d-test-${{ matrix.branch }}
 
-      - name: Push Docker image
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push --all-tags ghcr.io/tzok/cli2rest-fr3d

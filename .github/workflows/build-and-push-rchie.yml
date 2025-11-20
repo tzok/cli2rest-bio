@@ -59,7 +59,7 @@ jobs:
           echo "version=$LATEST_TAG" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Build Docker image
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./rchie
@@ -67,14 +67,14 @@ jobs:
           build-args: |
             R4RNA_VERSION=${{ steps.get_r4rna_version.outputs.version }}
             SVGCLEANER_VERSION=${{ steps.get_svgcleaner_version.outputs.version }}
-          push: false
+          push: ${{ github.event_name != 'pull_request' }}
           load: true
           tags: |
             ghcr.io/tzok/cli2rest-rchie:test
             ghcr.io/tzok/cli2rest-rchie:latest
             ghcr.io/tzok/cli2rest-rchie:${{ github.sha }}
             ghcr.io/tzok/cli2rest-rchie:${{ steps.get_r4rna_version.outputs.version }}_${{ steps.get_svgcleaner_version.outputs.version }}
-          cache-from: type=gha
+          cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-rchie:latest
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
@@ -115,7 +115,3 @@ jobs:
 
           docker stop cli2rest-rchie-test
 
-      - name: Push Docker image
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push --all-tags ghcr.io/tzok/cli2rest-rchie

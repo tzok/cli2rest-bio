@@ -31,17 +31,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./inkscape
-          push: false
+          push: ${{ github.event_name != 'pull_request' }}
           load: true
           tags: |
             ghcr.io/tzok/cli2rest-inkscape:test
             ghcr.io/tzok/cli2rest-inkscape:latest
             ghcr.io/tzok/cli2rest-inkscape:${{ github.sha }}
-          cache-from: type=gha
+          cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-inkscape:latest
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
@@ -67,7 +67,3 @@ jobs:
 
           docker stop cli2rest-inkscape-test
 
-      - name: Push Docker image
-        if: github.event_name != 'pull_request'
-        run: |
-          docker push --all-tags ghcr.io/tzok/cli2rest-inkscape
