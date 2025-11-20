@@ -15,10 +15,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false # Allow other matrix jobs to continue if one fails
-      matrix:
-        version_type: [master, latest_tag] # Build from master branch and latest release tag
 
     steps:
       - name: Checkout repository
@@ -30,11 +26,7 @@ jobs:
           # Get the latest commit hash for the master branch
           LATEST_COMMIT=$(git ls-remote https://github.com/srnas/barnaba.git HEAD | cut -f1)
           
-          # Use 'master' as the version identifier for tagging purposes
-          VERSION_TAG="master"
-          
           echo "Latest Barnaba commit: $LATEST_COMMIT"
-          echo "tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
           echo "commit_hash=$LATEST_COMMIT" >> "$GITHUB_OUTPUT"
         shell: bash
 
@@ -44,7 +36,7 @@ jobs:
         run: |
           # Use the commit hash for the version tag check
           COMMIT_HASH="${{ steps.barnaba-tag.outputs.commit_hash }}"
-          BRANCH_NAME="${{ matrix.version_type == 'master' && 'master' || 'latest_tag' }}"
+          BRANCH_NAME="master"
           TARGET_TAG="ghcr.io/tzok/cli2rest-barnaba:$BRANCH_NAME-$COMMIT_HASH"
           
           if docker manifest inspect "$TARGET_TAG" > /dev/null; then
@@ -77,18 +69,19 @@ jobs:
           build-args: |
             BARNABA_TAG=${{ steps.barnaba-tag.outputs.commit_hash }}
           tags: |
-            ghcr.io/tzok/cli2rest-barnaba:test-${{ matrix.version_type }}
-            ghcr.io/tzok/cli2rest-barnaba:${{ matrix.version_type }}-${{ steps.barnaba-tag.outputs.commit_hash }}
-            ${{ matrix.version_type == 'master' && format('ghcr.io/tzok/cli2rest-barnaba:latest') || '' }}
+            ghcr.io/tzok/cli2rest-barnaba:test-master
+            ghcr.io/tzok/cli2rest-barnaba:master-${{ steps.barnaba-tag.outputs.commit_hash }}
+            ghcr.io/tzok/cli2rest-barnaba:master
+            ghcr.io/tzok/cli2rest-barnaba:latest
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-barnaba:latest
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
         if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
         run: |
-          docker run --name cli2rest-barnaba-test-${{ matrix.version_type }} -d -p 8000 ghcr.io/tzok/cli2rest-barnaba:test-${{ matrix.version_type }}
+          docker run --name cli2rest-barnaba-test-master -d -p 8000 ghcr.io/tzok/cli2rest-barnaba:test-master
           sleep 5 # Wait for container to start
-          HOST_PORT=$(docker port cli2rest-barnaba-test-${{ matrix.version_type }} 8000 | cut -d: -f2)
+          HOST_PORT=$(docker port cli2rest-barnaba-test-master 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
 
           pip install .
@@ -105,5 +98,5 @@ jobs:
           done
           echo "Test passed: All output files created."
 
-          docker stop cli2rest-barnaba-test-${{ matrix.version_type }}
+          docker stop cli2rest-barnaba-test-master
 
