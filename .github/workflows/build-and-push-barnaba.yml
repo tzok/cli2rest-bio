@@ -15,40 +15,31 @@ jobs:
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false # Allow other matrix jobs to continue if one fails
-      matrix:
-        version_type: [master, latest_tag] # Build from master branch and latest release tag
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Get current date
-        id: date
-        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
-
-      - name: Get latest barnaba tag
+      - name: Get latest barnaba commit hash
         id: barnaba-tag
         run: |
-          # Get the latest tag from the barnaba repository using jq for reliable JSON parsing
-          LATEST_TAG=$(curl -s https://api.github.com/repos/srnas/barnaba/releases/latest | jq -r '.tag_name')
+          # Get the latest commit hash for the master branch
+          LATEST_COMMIT=$(git ls-remote https://github.com/srnas/barnaba.git HEAD | cut -f1)
+          SHORT_COMMIT=${LATEST_COMMIT:0:7}
           
-          # Check if LATEST_TAG is empty or "null" (jq returns "null" if key is missing)
-          if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
-            # If no releases found, use 'master' as the tag for the 'latest_tag' matrix item
-            LATEST_TAG="master"
-          fi
-          echo "tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
-          echo "Barnaba latest tag: $LATEST_TAG"
+          echo "Latest Barnaba commit: $LATEST_COMMIT"
+          echo "commit_hash=$LATEST_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "short_commit=$SHORT_COMMIT" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Check if target tag already exists in GHCR
         id: check_tag
         if: github.event_name != 'pull_request'
         run: |
-          VERSION_TAG="${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}"
-          TARGET_TAG="ghcr.io/tzok/cli2rest-barnaba:$VERSION_TAG"
+          # Use the short commit hash for the version tag check
+          SHORT_COMMIT="${{ steps.barnaba-tag.outputs.short_commit }}"
+          BRANCH_NAME="master"
+          TARGET_TAG="ghcr.io/tzok/cli2rest-barnaba:$BRANCH_NAME-$SHORT_COMMIT"
           
           if docker manifest inspect "$TARGET_TAG" > /dev/null; then
             echo "Image $TARGET_TAG already exists. Skipping build."
@@ -78,21 +69,21 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           load: true
           build-args: |
-            BARNABA_TAG=${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}
+            BARNABA_TAG=${{ steps.barnaba-tag.outputs.commit_hash }}
           tags: |
-            ghcr.io/tzok/cli2rest-barnaba:test-${{ matrix.version_type }}
-            ghcr.io/tzok/cli2rest-barnaba:${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}-${{ env.DATE }}
-            ghcr.io/tzok/cli2rest-barnaba:${{ matrix.version_type == 'master' && 'master' || steps.barnaba-tag.outputs.tag }}
-            ${{ matrix.version_type == 'master' && format('ghcr.io/tzok/cli2rest-barnaba:latest') || '' }}
+            ghcr.io/tzok/cli2rest-barnaba:test-master
+            ghcr.io/tzok/cli2rest-barnaba:master-${{ steps.barnaba-tag.outputs.short_commit }}
+            ghcr.io/tzok/cli2rest-barnaba:master
+            ghcr.io/tzok/cli2rest-barnaba:latest
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-barnaba:latest
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
         if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
         run: |
-          docker run --name cli2rest-barnaba-test-${{ matrix.version_type }} -d -p 8000 ghcr.io/tzok/cli2rest-barnaba:test-${{ matrix.version_type }}
+          docker run --name cli2rest-barnaba-test-master -d -p 8000 ghcr.io/tzok/cli2rest-barnaba:test-master
           sleep 5 # Wait for container to start
-          HOST_PORT=$(docker port cli2rest-barnaba-test-${{ matrix.version_type }} 8000 | cut -d: -f2)
+          HOST_PORT=$(docker port cli2rest-barnaba-test-master 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
 
           pip install .
@@ -109,5 +100,5 @@ jobs:
           done
           echo "Test passed: All output files created."
 
-          docker stop cli2rest-barnaba-test-${{ matrix.version_type }}
+          docker stop cli2rest-barnaba-test-master
 
