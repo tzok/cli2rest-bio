@@ -52,7 +52,7 @@ jobs:
           build-args: |
             MC_ANNOTATE_VERSION=${{ steps.mc-annotate-version.outputs.version }}
           tags: |
-            ghcr.io/tzok/cli2rest-mc-annotate:test
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-mc-annotate:test') || '' }}
             ghcr.io/tzok/cli2rest-mc-annotate:latest
             ghcr.io/tzok/cli2rest-mc-annotate:${{ github.sha }}
             ghcr.io/tzok/cli2rest-mc-annotate:${{ steps.mc-annotate-version.outputs.version }}

@@ -38,7 +38,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           load: true
           tags: |
-            ghcr.io/tzok/cli2rest-inkscape:test
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-inkscape:test') || '' }}
             ghcr.io/tzok/cli2rest-inkscape:latest
             ghcr.io/tzok/cli2rest-inkscape:${{ github.sha }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-inkscape:latest

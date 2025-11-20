@@ -48,7 +48,7 @@ jobs:
           build-args: |
             FR3D_BRANCH=${{ matrix.branch }}
           tags: |
-            ghcr.io/tzok/cli2rest-fr3d:test-${{ matrix.branch }}
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-fr3d:test-{0}', matrix.branch) || '' }}
             ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}-${{ env.DATE }}
             ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}
             ${{ matrix.branch == 'latest' && format('ghcr.io/tzok/cli2rest-fr3d:latest') || '' }}

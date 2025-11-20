@@ -69,7 +69,7 @@ jobs:
           build-args: |
             RNAVIEW_VERSION=${{ steps.get_version.outputs.version }}
           tags: |
-            ghcr.io/tzok/cli2rest-rnaview:test
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-rnaview:test') || '' }}
             ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-rnaview:latest

@@ -56,7 +56,7 @@ jobs:
           build-args: |
             BARNABA_TAG=${{ steps.barnaba-tag.outputs.tag }}
           tags: |
-            ghcr.io/tzok/cli2rest-barnaba:test
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-barnaba:test') || '' }}
             ghcr.io/tzok/cli2rest-barnaba:${{ steps.barnaba-tag.outputs.tag }}-${{ env.DATE }}
             ghcr.io/tzok/cli2rest-barnaba:${{ steps.barnaba-tag.outputs.tag }}
             ghcr.io/tzok/cli2rest-barnaba:latest

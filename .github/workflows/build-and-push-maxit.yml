@@ -47,7 +47,7 @@ jobs:
           build-args: |
             MAXIT_VERSION=${{ steps.maxit-version.outputs.version }}
           tags: |
-            ghcr.io/tzok/cli2rest-maxit:test
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-maxit:test') || '' }}
             ghcr.io/tzok/cli2rest-maxit:latest
             ghcr.io/tzok/cli2rest-maxit:${{ github.sha }}
             ghcr.io/tzok/cli2rest-maxit:${{ steps.maxit-version.outputs.version }}

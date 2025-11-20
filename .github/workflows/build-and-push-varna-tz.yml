@@ -61,7 +61,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           load: true
           tags: |
-            ghcr.io/tzok/cli2rest-varna-tz:test
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-varna-tz:test') || '' }}
             ghcr.io/tzok/cli2rest-varna-tz:latest
             ghcr.io/tzok/cli2rest-varna-tz:${{ github.sha }}
             ghcr.io/tzok/cli2rest-varna-tz:${{ steps.get_varna_version.outputs.version }}_${{ steps.get_svgcleaner_version.outputs.version }}

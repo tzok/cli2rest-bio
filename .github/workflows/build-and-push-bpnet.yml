@@ -47,7 +47,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           load: true
           tags: |
-            ghcr.io/tzok/cli2rest-bpnet:test
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-bpnet:test') || '' }}
             ghcr.io/tzok/cli2rest-bpnet:latest
             ghcr.io/tzok/cli2rest-bpnet:${{ github.sha }}
             ghcr.io/tzok/cli2rest-bpnet:${{ steps.get_version.outputs.version }}
