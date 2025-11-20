@@ -31,13 +31,15 @@ jobs:
       - name: Get latest barnaba tag
         id: barnaba-tag
         run: |
-          # Get the latest tag from the barnaba repository
-          LATEST_TAG=$(curl -s https://api.github.com/repos/srnas/barnaba/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          # Get the latest tag from the barnaba repository using jq for reliable JSON parsing
+          LATEST_TAG=$(curl -s https://api.github.com/repos/srnas/barnaba/releases/latest | jq -r '.tag_name')
+          
+          # Check if LATEST_TAG is empty or "null" (jq returns "null" if key is missing)
           if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
             # If no releases found, use 'master' as the tag for the 'latest_tag' matrix item
             LATEST_TAG="master"
           fi
-          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
           echo "Barnaba latest tag: $LATEST_TAG"
         shell: bash
 
