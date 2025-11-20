@@ -49,7 +49,6 @@ jobs:
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-maxit:test') || '' }}
             ghcr.io/tzok/cli2rest-maxit:latest
-            ghcr.io/tzok/cli2rest-maxit:${{ github.sha }}
             ghcr.io/tzok/cli2rest-maxit:${{ steps.maxit-version.outputs.version }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-maxit:latest
           cache-to: type=gha,mode=max

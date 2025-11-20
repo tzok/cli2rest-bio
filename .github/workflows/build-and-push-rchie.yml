@@ -72,7 +72,6 @@ jobs:
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-rchie:test') || '' }}
             ghcr.io/tzok/cli2rest-rchie:latest
-            ghcr.io/tzok/cli2rest-rchie:${{ github.sha }}
             ghcr.io/tzok/cli2rest-rchie:${{ steps.get_r4rna_version.outputs.version }}_${{ steps.get_svgcleaner_version.outputs.version }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-rchie:latest
           cache-to: type=gha,mode=max

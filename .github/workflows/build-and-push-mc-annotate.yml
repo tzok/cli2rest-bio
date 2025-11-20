@@ -54,7 +54,6 @@ jobs:
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-mc-annotate:test') || '' }}
             ghcr.io/tzok/cli2rest-mc-annotate:latest
-            ghcr.io/tzok/cli2rest-mc-annotate:${{ github.sha }}
             ghcr.io/tzok/cli2rest-mc-annotate:${{ steps.mc-annotate-version.outputs.version }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-mc-annotate:latest
           cache-to: type=gha,mode=max

@@ -47,7 +47,6 @@ jobs:
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-rnapolis:test') || '' }}
             ghcr.io/tzok/cli2rest-rnapolis:latest
-            ghcr.io/tzok/cli2rest-rnapolis:${{ github.sha }}
             ghcr.io/tzok/cli2rest-rnapolis:${{ steps.get_version.outputs.version }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-rnapolis:latest
           cache-to: type=gha,mode=max
