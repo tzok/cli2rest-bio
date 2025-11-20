@@ -39,7 +39,7 @@ jobs:
         id: get_commit
         run: |
           # Get the latest commit hash for the current matrix branch
-          LATEST_COMMIT=$(git ls-remote https://github.com/tzok/fr3d.git ${{ matrix.branch }} | cut -f1)
+          LATEST_COMMIT=$(git ls-remote https://github.com/BGSU-RNA/fr3d-python.git ${{ matrix.branch }} | cut -f1)
           SHORT_COMMIT=${LATEST_COMMIT:0:7}
           echo "Latest FR3D commit for ${{ matrix.branch }}: $LATEST_COMMIT"
           echo "commit_hash=$LATEST_COMMIT" >> $GITHUB_OUTPUT
