@@ -20,6 +20,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Get current date
+        id: date
+        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -40,6 +44,7 @@ jobs:
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-inkscape:test') || '' }}
             ghcr.io/tzok/cli2rest-inkscape:latest
+            ghcr.io/tzok/cli2rest-inkscape:${{ env.DATE }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-inkscape:latest
           cache-to: type=gha,mode=max
 
