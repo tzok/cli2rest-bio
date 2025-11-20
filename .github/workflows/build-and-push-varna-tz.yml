@@ -50,7 +50,24 @@ jobs:
           echo "version=$LATEST_TAG" >> $GITHUB_OUTPUT
         shell: bash
 
+      - name: Check if target tag already exists in GHCR
+        id: check_tag
+        if: github.event_name != 'pull_request'
+        run: |
+          VERSION_TAG="${{ steps.get_varna_version.outputs.version }}_${{ steps.get_svgcleaner_version.outputs.version }}"
+          TARGET_TAG="ghcr.io/tzok/cli2rest-varna-tz:$VERSION_TAG"
+          
+          if docker manifest inspect "$TARGET_TAG" > /dev/null; then
+            echo "Image $TARGET_TAG already exists. Skipping build."
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "Image $TARGET_TAG not found. Proceeding with build."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
       - name: Build and Push Docker image
+        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./varna-tz
@@ -68,6 +85,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
+        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
         run: |
           docker run --name cli2rest-varna-tz-test -d -p 8000 ghcr.io/tzok/cli2rest-varna-tz:test
           sleep 5 # Wait for container to start

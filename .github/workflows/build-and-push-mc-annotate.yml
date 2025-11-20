@@ -43,7 +43,23 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "MC-Annotate version: $VERSION"
 
+      - name: Check if target tag already exists in GHCR
+        id: check_tag
+        if: github.event_name != 'pull_request'
+        run: |
+          TARGET_TAG="ghcr.io/tzok/cli2rest-mc-annotate:${{ steps.mc-annotate-version.outputs.version }}"
+          
+          if docker manifest inspect "$TARGET_TAG" > /dev/null; then
+            echo "Image $TARGET_TAG already exists. Skipping build."
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "Image $TARGET_TAG not found. Proceeding with build."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
       - name: Build and Push Docker image
+        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./mc-annotate
@@ -59,6 +75,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
+        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
         run: |
           docker run --name cli2rest-mc-annotate-test -d -p 8000 ghcr.io/tzok/cli2rest-mc-annotate:test
           sleep 5 # Wait for container to start

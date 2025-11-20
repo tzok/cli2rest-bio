@@ -24,6 +24,21 @@ jobs:
         id: date
         run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
 
+      - name: Check if latest tag already exists in GHCR
+        id: check_tag
+        if: github.event_name != 'pull_request'
+        run: |
+          TARGET_TAG="ghcr.io/tzok/cli2rest-inkscape:latest"
+          
+          if docker manifest inspect "$TARGET_TAG" > /dev/null; then
+            echo "Image $TARGET_TAG already exists. Skipping build."
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "Image $TARGET_TAG not found. Proceeding with build."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -36,6 +51,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Docker image
+        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./inkscape
@@ -49,6 +65,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
+        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
         run: |
           docker run --name cli2rest-inkscape-test -d -p 8000 ghcr.io/tzok/cli2rest-inkscape:test
           sleep 5 # Wait for container to start
