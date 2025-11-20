@@ -35,13 +35,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set BPNet version to master
+      - name: Get latest BPNet commit and set version tag
         id: get_version
         run: |
-          # Use 'master' as the version identifier for BPNet
-          VERSION="master"
-          echo "BPNet version: $VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # Get the latest commit hash from the BPNet repository
+          LATEST_COMMIT=$(git ls-remote https://github.com/computational-biology/bpnet.git HEAD | cut -f1)
+          # Use 'master' as the version identifier for tagging purposes
+          VERSION_TAG="master"
+          echo "Latest BPNet commit: $LATEST_COMMIT"
+          echo "version=$VERSION_TAG" >> $GITHUB_OUTPUT
+          echo "commit_hash=$LATEST_COMMIT" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Build and Push Docker image
