@@ -1,0 +1,10 @@
+name: "rnapolis"
+docker_image: "ghcr.io/tzok/cli2rest-rnapolis:latest"
+arguments:
+  - "annotator"
+  - "--json"
+  - "output.json"
+  - "input.cif"
+input_file: "input.cif"
+output_files:
+  - "output.json"
