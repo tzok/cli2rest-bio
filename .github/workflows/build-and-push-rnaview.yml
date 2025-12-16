@@ -52,6 +52,12 @@ jobs:
         id: check_tag
         if: github.event_name != 'pull_request'
         run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manual trigger detected. Forcing rebuild."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
           TARGET_TAG="ghcr.io/tzok/cli2rest-rnaview:${{ steps.get_version.outputs.version }}"
           
           if docker manifest inspect "$TARGET_TAG" > /dev/null; then

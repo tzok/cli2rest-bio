@@ -36,6 +36,12 @@ jobs:
         id: check_tag
         if: github.event_name != 'pull_request'
         run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manual trigger detected. Forcing rebuild."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
           # Use the short commit hash for the version tag check
           SHORT_COMMIT="${{ steps.barnaba-tag.outputs.short_commit }}"
           BRANCH_NAME="master"

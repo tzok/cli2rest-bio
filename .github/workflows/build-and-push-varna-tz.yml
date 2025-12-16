@@ -54,6 +54,12 @@ jobs:
         id: check_tag
         if: github.event_name != 'pull_request'
         run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manual trigger detected. Forcing rebuild."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
           VERSION_TAG="${{ steps.get_varna_version.outputs.version }}_${{ steps.get_svgcleaner_version.outputs.version }}"
           TARGET_TAG="ghcr.io/tzok/cli2rest-varna-tz:$VERSION_TAG"
           

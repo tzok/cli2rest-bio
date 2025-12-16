@@ -45,6 +45,12 @@ jobs:
         # Only run this check if we are pushing (i.e., not a pull request)
         if: github.event_name != 'pull_request'
         run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manual trigger detected. Forcing rebuild."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
           TARGET_TAG="ghcr.io/tzok/cli2rest-reduce:${{ steps.get_version.outputs.version }}"
           
           # Try to inspect the manifest. If it fails (exit code 1), the image doesn't exist.

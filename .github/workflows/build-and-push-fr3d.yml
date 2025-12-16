@@ -50,6 +50,12 @@ jobs:
         id: check_tag
         if: github.event_name != 'pull_request'
         run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manual trigger detected. Forcing rebuild."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
           SHORT_COMMIT="${{ steps.get_commit.outputs.short_commit }}"
           BRANCH_NAME="${{ matrix.branch }}"
           TARGET_TAG="ghcr.io/tzok/cli2rest-fr3d:$BRANCH_NAME-$SHORT_COMMIT"
