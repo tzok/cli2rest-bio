@@ -28,3 +28,6 @@ RUN mkdir /reduce-src/build \
 FROM ghcr.io/tzok/cli2rest:latest
 
 COPY --from=builder /opt/reduce/bin /usr/local/bin
+
+COPY wrapper.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/wrapper.sh

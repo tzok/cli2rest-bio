@@ -13,3 +13,6 @@ RUN unzip /MC-Annotate.zip
 FROM ghcr.io/tzok/cli2rest:latest
 
 COPY --from=builder /MC-Annotate /usr/local/bin/MC-Annotate
+
+COPY wrapper.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/wrapper.sh

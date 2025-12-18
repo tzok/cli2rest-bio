@@ -1,6 +1,8 @@
 name: "reduce"
 docker_image: "ghcr.io/tzok/cli2rest-reduce:latest"
 arguments:
-  - "reduce"
+  - "wrapper.sh"
   - "input.pdb"
 input_file: "input.pdb"
+output_files:
+  - "output.pdb"
