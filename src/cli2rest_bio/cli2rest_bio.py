@@ -33,15 +33,31 @@ def load_tool_config(config_path: str):
     # 1. Local filesystem candidates
     local_base = Path(config_path).resolve()
     candidates.append((local_base, f"local file ({local_base})"))
-    candidates.append((local_base / "config.yaml", f"local directory ({local_base}/config.yaml)"))
-    candidates.append((local_base / "config.yml", f"local directory ({local_base}/config.yml)"))
+    candidates.append(
+        (local_base / "config.yaml", f"local directory ({local_base}/config.yaml)")
+    )
+    candidates.append(
+        (local_base / "config.yml", f"local directory ({local_base}/config.yml)")
+    )
 
     # 2. Package resource candidates
     try:
-        package_base = importlib.resources.files("cli2rest_bio.configs").joinpath(config_path)
+        package_base = importlib.resources.files("cli2rest_bio.configs").joinpath(
+            config_path
+        )
         candidates.append((package_base, f"package resource file ({config_path})"))
-        candidates.append((package_base / "config.yaml", f"package resource directory ({config_path}/config.yaml)"))
-        candidates.append((package_base / "config.yml", f"package resource directory ({config_path}/config.yml)"))
+        candidates.append(
+            (
+                package_base / "config.yaml",
+                f"package resource directory ({config_path}/config.yaml)",
+            )
+        )
+        candidates.append(
+            (
+                package_base / "config.yml",
+                f"package resource directory ({config_path}/config.yml)",
+            )
+        )
     except (ModuleNotFoundError, FileNotFoundError):
         pass
 
@@ -52,7 +68,10 @@ def load_tool_config(config_path: str):
                     config = yaml.safe_load(f)
 
                 if not config or "name" not in config:
-                    print(f"Error: Configuration from {description} must contain a 'name' field", file=sys.stderr)
+                    print(
+                        f"Error: Configuration from {description} must contain a 'name' field",
+                        file=sys.stderr,
+                    )
                     sys.exit(1)
 
                 print(f"Configuration loaded from: {description}", file=sys.stderr)
@@ -60,10 +79,15 @@ def load_tool_config(config_path: str):
         except (FileNotFoundError, NotADirectoryError, PermissionError):
             continue
         except Exception as e:
-            print(f"Error reading configuration from {description}: {e}", file=sys.stderr)
+            print(
+                f"Error reading configuration from {description}: {e}", file=sys.stderr
+            )
             sys.exit(1)
 
-    print(f"Error: Configuration '{config_path}' not found locally or in package resources.", file=sys.stderr)
+    print(
+        f"Error: Configuration '{config_path}' not found locally or in package resources.",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
