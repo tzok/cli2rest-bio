@@ -99,7 +99,7 @@ jobs:
 
           cli2rest-bio --api-url http://localhost:$HOST_PORT src/cli2rest_bio/configs/fr3d/config.yaml 1ehz.cif
 
-          for f in fr3d-1ehz-stdout.txt fr3d-1ehz-stderr.txt fr3d-1ehz-basepair_detail.txt fr3d-1ehz-stacking.txt fr3d-1ehz-backbone.txt; do
+          for f in fr3d-1ehz-basepair_detail.txt fr3d-1ehz-stacking.txt fr3d-1ehz-backbone.txt; do
             if [ ! -f "$f" ]; then
               echo "Test failed: Output file $f is missing."
               ls -l

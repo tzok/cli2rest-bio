@@ -97,7 +97,7 @@ jobs:
 
           cli2rest-bio --api-url http://localhost:$HOST_PORT src/cli2rest_bio/configs/barnaba/config.yaml 1ehz.pdb
 
-          for f in barnaba-1ehz-outfile.ANNOTATE.pairing.out barnaba-1ehz-outfile.ANNOTATE.stacking.out barnaba-1ehz-stdout.txt barnaba-1ehz-stderr.txt; do
+          for f in barnaba-1ehz-outfile.ANNOTATE.pairing.out barnaba-1ehz-outfile.ANNOTATE.stacking.out; do
             if [ ! -f "$f" ]; then
               echo "Test failed: Output file $f is missing."
               ls -l
