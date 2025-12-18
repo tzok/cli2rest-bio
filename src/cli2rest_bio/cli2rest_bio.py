@@ -5,7 +5,6 @@ import importlib.resources
 import json
 import os
 import sys
-import tempfile
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -50,6 +49,7 @@ def load_tool_config(config_path_str):
             package_configs_path = importlib.resources.files("cli2rest_bio.configs")
             resource_path = package_configs_path.joinpath(config_path_str)
 
+            config = None
             if resource_path.is_file():
                 # Need to open via importlib.resources for zip safety
                 with resource_path.open("r") as f:
@@ -70,12 +70,9 @@ def load_tool_config(config_path_str):
                     loaded_from = (
                         f"package resource directory ({config_path_str}/config.yml)"
                     )
-                else:
-                    # Directory exists in package, but no config.yaml/yml
-                    pass  # Will fall through to error
 
             # If we loaded config from package resource, return it directly
-            if loaded_from and loaded_from.startswith("package"):
+            if config is not None and loaded_from and loaded_from.startswith("package"):
                 # Ensure the config has a name field
                 if "name" not in config:
                     print(
@@ -188,7 +185,9 @@ def start_docker_container(docker_image: str):
     # Pull the image if needed
     try:
         client.images.get(docker_image)
-    except docker.errors.ImageNotFound:
+    except Exception:
+        # docker.errors might not be directly accessible depending on environment
+        # but we can catch the general exception and try to pull
         print(f"Pulling image {docker_image}...", file=sys.stderr)
         client.images.pull(docker_image)
 
@@ -201,7 +200,8 @@ def start_docker_container(docker_image: str):
     )
 
     # Get the port that Docker assigned
-    container_info = client.containers.get(container.id)
+    container_id = str(container.id)
+    container_info = client.containers.get(container_id)
     port = container_info.ports["8000/tcp"][0]["HostPort"]
 
     print(f"Container running on port: {port}", file=sys.stderr)
@@ -327,10 +327,15 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
         disposition = part.get("Content-Disposition", "")
 
         if 'name="metadata"' in disposition:
-            result = json.loads(part.get_payload(decode=True))
+            payload = part.get_payload(decode=True)
+            if isinstance(payload, bytes):
+                result = json.loads(payload.decode("utf-8"))
         elif "filename=" in disposition:
             filename = part.get_filename()
-            content_bytes = part.get_payload(decode=True)
+            payload = part.get_payload(decode=True)
+            if not isinstance(payload, bytes):
+                continue
+            content_bytes = payload
 
             # Create the file path with the formatted prefix
             prefixed_output_path = os.path.join(
