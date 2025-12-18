@@ -173,7 +173,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def start_docker_container(docker_image):
+def start_docker_container(docker_image: str):
     """Start a Docker container with the specified image and return the container ID and port."""
     # Generate a unique container name using UUID
     container_name = (
@@ -261,34 +261,20 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
 
     # Prepare input files for the 'files' parameter
     files_to_upload = {}
-    temp_file = None
 
     # Get the input file path from config
     input_file_config_path = config.get("input_file")
     if input_file_config_path:
         try:
             # Check if we need to ungzip the file
-            actual_input_file = input_file
             if not args.no_auto_ungzip and input_file.endswith(".gz"):
-                print(f"Ungzipping {input_file}...", file=sys.stderr)
-                # Create a temporary file
-                temp_file = tempfile.NamedTemporaryFile(delete=False)
-                temp_file.close()  # Close the file handle so we can write to it
+                print(f"Streaming ungzipped {input_file}...", file=sys.stderr)
+                file_object = gzip.open(input_file, "rb")
+            else:
+                file_object = open(input_file, "rb")
 
-                # Ungzip the input file to the temporary file
-                with gzip.open(input_file, "rb") as gz_file:
-                    with open(temp_file.name, "wb") as temp_out:
-                        temp_out.write(gz_file.read())
-
-                actual_input_file = temp_file.name
-                print(
-                    f"Ungzipped to temporary file: {actual_input_file}", file=sys.stderr
-                )
-
-            # Open in binary mode for requests 'files' parameter
             # Use the field name expected by the FastAPI server ("input_files")
             # and pass the configured filename within the tuple.
-            file_object = open(actual_input_file, "rb")
             files_to_upload["input_files"] = (input_file_config_path, file_object)
         except FileNotFoundError:
             print(f"Error: Input file {input_file} not found.", file=sys.stderr)
@@ -322,10 +308,6 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
         # Ensure uploaded files are closed
         for _, f in files_to_upload.values():
             f.close()
-
-        # Clean up temporary file if it was created
-        if temp_file and os.path.exists(temp_file.name):
-            os.unlink(temp_file.name)
 
     if response.status_code != 200:
         print(f"Error processing {input_file}: {response.text}", file=sys.stderr)
