@@ -27,101 +27,44 @@ def load_tool_config(config_path: str):
     If not found, falls back to loading from the package's 'configs' directory.
     Handles both direct file paths and directory paths (looking for config.yaml/yml).
     """
-    config_to_load = None
-    loaded_from = None
+    # Define candidates as (path_object, description)
+    candidates = []
 
-    # --- 1. Check relative to current working directory ---
-    local_path = Path(config_path).resolve()  # Resolve to absolute path
+    # 1. Local filesystem candidates
+    local_base = Path(config_path).resolve()
+    candidates.append((local_base, f"local file ({local_base})"))
+    candidates.append((local_base / "config.yaml", f"local directory ({local_base}/config.yaml)"))
+    candidates.append((local_base / "config.yml", f"local directory ({local_base}/config.yml)"))
 
-    if local_path.is_file():
-        config_to_load = local_path
-        loaded_from = "local file"
-    elif local_path.is_dir():
-        yaml_path = local_path / "config.yaml"
-        yml_path = local_path / "config.yml"
-        if yaml_path.is_file():
-            config_to_load = yaml_path
-            loaded_from = "local directory (config.yaml)"
-        elif yml_path.is_file():
-            config_to_load = yml_path
-            loaded_from = "local directory (config.yml)"
+    # 2. Package resource candidates
+    try:
+        package_base = importlib.resources.files("cli2rest_bio.configs").joinpath(config_path)
+        candidates.append((package_base, f"package resource file ({config_path})"))
+        candidates.append((package_base / "config.yaml", f"package resource directory ({config_path}/config.yaml)"))
+        candidates.append((package_base / "config.yml", f"package resource directory ({config_path}/config.yml)"))
+    except (ModuleNotFoundError, FileNotFoundError):
+        pass
 
-    # --- 2. If not found locally, check package resources ---
-    if config_to_load is None:
+    for path, description in candidates:
         try:
-            package_configs_path = importlib.resources.files("cli2rest_bio.configs")
-            resource_path = package_configs_path.joinpath(config_path)
-
-            config = None
-            if resource_path.is_file():
-                # Need to open via importlib.resources for zip safety
-                with resource_path.open("r") as f:
+            if path.is_file():
+                with path.open("r") as f:
                     config = yaml.safe_load(f)
-                loaded_from = f"package resource file ({config_path})"
-            elif resource_path.is_dir():
-                yaml_path_res = resource_path / "config.yaml"
-                yml_path_res = resource_path / "config.yml"
-                if yaml_path_res.is_file():
-                    with yaml_path_res.open("r") as f:
-                        config = yaml.safe_load(f)
-                    loaded_from = (
-                        f"package resource directory ({config_path}/config.yaml)"
-                    )
-                elif yml_path_res.is_file():
-                    with yml_path_res.open("r") as f:
-                        config = yaml.safe_load(f)
-                    loaded_from = (
-                        f"package resource directory ({config_path}/config.yml)"
-                    )
 
-            # If we loaded config from package resource, return it directly
-            if config is not None and loaded_from and loaded_from.startswith("package"):
-                # Ensure the config has a name field
-                if "name" not in config:
-                    print(
-                        f"Error: Configuration loaded from {loaded_from} must contain a 'name' field",
-                        file=sys.stderr,
-                    )
+                if not config or "name" not in config:
+                    print(f"Error: Configuration from {description} must contain a 'name' field", file=sys.stderr)
                     sys.exit(1)
-                print(f"Configuration loaded from: {loaded_from}", file=sys.stderr)
+
+                print(f"Configuration loaded from: {description}", file=sys.stderr)
                 return config
-
-        except (ModuleNotFoundError, FileNotFoundError, NotADirectoryError):
-            # Error finding the resource path itself
-            pass  # Will fall through to error
-
-    # --- 3. Load from the determined local path or raise error ---
-    if config_to_load and config_to_load.is_file():
-        try:
-            with open(config_to_load, "r") as f:
-                config = yaml.safe_load(f)
-            print(
-                f"Configuration loaded from: {loaded_from} ({config_to_load})",
-                file=sys.stderr,
-            )
+        except (FileNotFoundError, NotADirectoryError, PermissionError):
+            continue
         except Exception as e:
-            print(
-                f"Error reading configuration file {config_to_load}: {e}",
-                file=sys.stderr,
-            )
+            print(f"Error reading configuration from {description}: {e}", file=sys.stderr)
             sys.exit(1)
-    else:
-        # If config_to_load is still None after checking both locations
-        print(
-            f"Error: Configuration '{config_path}' not found locally or in package resources.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
 
-    # Ensure the config has a name field
-    if "name" not in config:
-        print(
-            "Error: Configuration file must contain a 'name' field",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    return config
+    print(f"Error: Configuration '{config_path}' not found locally or in package resources.", file=sys.stderr)
+    sys.exit(1)
 
 
 def parse_arguments():
