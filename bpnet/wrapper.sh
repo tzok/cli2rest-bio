@@ -35,14 +35,14 @@ echo "Running MetBP on $INPUT_FILE..." >&2
 metbp.linux "$INPUT_FILE" -mode=dev
 
 # Rename the MetBP basepair JSON file to match expected output name
-if [ -f "${BASE_NAME}_basepair.json" ]; then
+if [ -f "${BASE_NAME}_basepair.json" ] && [ "${BASE_NAME}_basepair.json" != "input_basepair.json" ]; then
 	mv "${BASE_NAME}_basepair.json" "input_basepair.json"
 fi
 
 # Check if .rob file was created by BPNet (it should be created automatically)
 if [ ! -f "${BASE_NAME}.rob" ]; then
 	echo "Warning: Expected .rob file not found" >&2
-else
+elif [ "${BASE_NAME}.rob" != "input.rob" ]; then
 	# Rename .rob file to match expected output name
 	mv "${BASE_NAME}.rob" "input.rob"
 fi
