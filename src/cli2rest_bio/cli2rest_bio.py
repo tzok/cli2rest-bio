@@ -297,7 +297,7 @@ def process_file(
     if response.status_code != 200:
         print(f"Error processing {input_file}: {response.text}", file=sys.stderr)
         if args.output_metadata:
-            error_metadata = {
+            error_metadata: Dict[str, Any] = {
                 "status": "CLI2REST-FAILED",
                 "http_code": response.status_code,
                 "http_message": response.reason,
@@ -367,7 +367,7 @@ def process_file(
             file=sys.stderr,
         )
         if args.output_metadata:
-            error_metadata = {
+            error_metadata: Dict[str, Any] = {
                 "status": "CLI2REST-FAILED",
                 "http_code": response.status_code,
                 "http_message": "No metadata in multipart response",
