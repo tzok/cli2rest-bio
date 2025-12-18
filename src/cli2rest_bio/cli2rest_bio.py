@@ -379,17 +379,6 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
             file=sys.stderr,
         )
 
-    # Always create stdout and stderr files
-    stdout_path = os.path.join(effective_output_dir, f"{output_prefix}stdout.txt")
-    with open(stdout_path, "w") as f:
-        f.write(result.get("stdout", ""))
-    print(f"Saved stdout to: {stdout_path}", file=sys.stderr)
-
-    stderr_path = os.path.join(effective_output_dir, f"{output_prefix}stderr.txt")
-    with open(stderr_path, "w") as f:
-        f.write(result.get("stderr", ""))
-    print(f"Saved stderr to: {stderr_path}", file=sys.stderr)
-
 
 def main():
     # Parse command line arguments
