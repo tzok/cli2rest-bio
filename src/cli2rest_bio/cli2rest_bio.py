@@ -224,7 +224,6 @@ def process_file(
     """Process a single input file using the specified tool configuration."""
     # Get file information
     input_base = os.path.splitext(os.path.basename(input_file))[0]
-    # Determine the effective output directory
     effective_output_dir = output_dir_base or os.path.dirname(
         os.path.abspath(input_file)
     )
@@ -291,29 +290,31 @@ def process_file(
         )
     finally:
         # Ensure uploaded files are closed
-        for _, f in files_to_upload.values():
-            f.close()
+        for _, fd in files_to_upload.values():
+            fd.close()
+
+    # Prepare error metadata in case of failure
+    error_metadata: Dict[str, Any] = {
+        "status": "CLI2REST-FAILED",
+        "http_code": response.status_code,
+        "http_message": response.reason,
+        "exit_code": None,
+        "missing_files": output_file_names,
+        "execution_stats": {
+            "start_time": None,
+            "end_time": None,
+            "duration_seconds": None,
+            "max_rss_kb": None,
+            "cpu_user_seconds": None,
+        },
+        "stdout": None,
+        "stderr": None,
+        "command": full_arguments,
+    }
 
     if response.status_code != 200:
         print(f"Error processing {input_file}: {response.text}", file=sys.stderr)
         if args.output_metadata:
-            error_metadata: Dict[str, Any] = {
-                "status": "CLI2REST-FAILED",
-                "http_code": response.status_code,
-                "http_message": response.reason,
-                "exit_code": None,
-                "missing_files": output_file_names,
-                "execution_stats": {
-                    "start_time": None,
-                    "end_time": None,
-                    "duration_seconds": None,
-                    "max_rss_kb": None,
-                    "cpu_user_seconds": None,
-                },
-                "stdout": None,
-                "stderr": None,
-                "command": full_arguments,
-            }
             try:
                 with open(args.output_metadata, "w") as f:
                     json.dump(error_metadata, f, separators=(",", ":"))
@@ -366,30 +367,7 @@ def process_file(
             f"Error: No metadata found in response for {input_file}",
             file=sys.stderr,
         )
-        if args.output_metadata:
-            error_metadata: Dict[str, Any] = {
-                "status": "CLI2REST-FAILED",
-                "http_code": response.status_code,
-                "http_message": "No metadata in multipart response",
-                "exit_code": None,
-                "missing_files": output_file_names,
-                "execution_stats": {
-                    "start_time": None,
-                    "end_time": None,
-                    "duration_seconds": None,
-                    "max_rss_kb": None,
-                    "cpu_user_seconds": None,
-                },
-                "stdout": None,
-                "stderr": None,
-                "command": full_arguments,
-            }
-            try:
-                with open(args.output_metadata, "w") as f:
-                    json.dump(error_metadata, f, separators=(",", ":"))
-            except IOError as e:
-                print(f"Error writing metadata file: {e}", file=sys.stderr)
-        return
+        result = error_metadata
 
     if args.output_metadata:
         try:
