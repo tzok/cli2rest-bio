@@ -10,6 +10,7 @@ maxit/Dockerfile
 maxit/README.md
 reduce/Dockerfile
 reduce/README.md
+reduce/wrapper.sh
 rnaview/Dockerfile
 rnaview/README.md
 src/cli2rest_bio/__init__.py

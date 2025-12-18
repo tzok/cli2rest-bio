@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 import argparse
-import base64
 import gzip
 import importlib.resources
+from importlib.resources.abc import Traversable
+import json
 import os
 import sys
-import tempfile
 import time
+from typing import Any, BinaryIO, Dict, List, Tuple, Union
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from email import message_from_bytes
 from pathlib import Path
 
 import docker
+import docker.models
+import docker.models.containers
 import requests
 import yaml
 
 
-def load_tool_config(config_path_str):
+def load_tool_config(config_path: str):
     """
     Load the YAML configuration.
 
@@ -24,103 +28,68 @@ def load_tool_config(config_path_str):
     If not found, falls back to loading from the package's 'configs' directory.
     Handles both direct file paths and directory paths (looking for config.yaml/yml).
     """
-    config_to_load = None
-    loaded_from = None
+    # Define candidates as (path_object, description)
+    candidates: List[Tuple[Path | Traversable, str]] = []
 
-    # --- 1. Check relative to current working directory ---
-    local_path = Path(config_path_str).resolve()  # Resolve to absolute path
+    # 1. Local filesystem candidates
+    local_base = Path(config_path).resolve()
+    candidates.append((local_base, f"local file ({local_base})"))
+    candidates.append(
+        (local_base / "config.yaml", f"local directory ({local_base}/config.yaml)")
+    )
+    candidates.append(
+        (local_base / "config.yml", f"local directory ({local_base}/config.yml)")
+    )
 
-    if local_path.is_file():
-        config_to_load = local_path
-        loaded_from = "local file"
-    elif local_path.is_dir():
-        yaml_path = local_path / "config.yaml"
-        yml_path = local_path / "config.yml"
-        if yaml_path.is_file():
-            config_to_load = yaml_path
-            loaded_from = "local directory (config.yaml)"
-        elif yml_path.is_file():
-            config_to_load = yml_path
-            loaded_from = "local directory (config.yml)"
+    # 2. Package resource candidates
+    try:
+        package_base = importlib.resources.files("cli2rest_bio.configs").joinpath(
+            config_path
+        )
+        candidates.append((package_base, f"package resource file ({config_path})"))
+        candidates.append(
+            (
+                package_base / "config.yaml",
+                f"package resource directory ({config_path}/config.yaml)",
+            )
+        )
+        candidates.append(
+            (
+                package_base / "config.yml",
+                f"package resource directory ({config_path}/config.yml)",
+            )
+        )
+    except (ModuleNotFoundError, FileNotFoundError):
+        pass
 
-    # --- 2. If not found locally, check package resources ---
-    if config_to_load is None:
+    for path, description in candidates:
         try:
-            package_configs_path = importlib.resources.files("cli2rest_bio.configs")
-            resource_path = package_configs_path.joinpath(config_path_str)
-
-            if resource_path.is_file():
-                # Need to open via importlib.resources for zip safety
-                with resource_path.open("r") as f:
+            if path.is_file():
+                with path.open("r") as f:
                     config = yaml.safe_load(f)
-                loaded_from = f"package resource file ({config_path_str})"
-            elif resource_path.is_dir():
-                yaml_path = resource_path / "config.yaml"
-                yml_path = resource_path / "config.yml"
-                if yaml_path.is_file():
-                    with yaml_path.open("r") as f:
-                        config = yaml.safe_load(f)
-                    loaded_from = (
-                        f"package resource directory ({config_path_str}/config.yaml)"
-                    )
-                elif yml_path.is_file():
-                    with yml_path.open("r") as f:
-                        config = yaml.safe_load(f)
-                    loaded_from = (
-                        f"package resource directory ({config_path_str}/config.yml)"
-                    )
-                else:
-                    # Directory exists in package, but no config.yaml/yml
-                    pass  # Will fall through to error
 
-            # If we loaded config from package resource, return it directly
-            if loaded_from and loaded_from.startswith("package"):
-                # Ensure the config has a name field
-                if "name" not in config:
+                if not config or "name" not in config:
                     print(
-                        f"Error: Configuration loaded from {loaded_from} must contain a 'name' field",
+                        f"Error: Configuration from {description} must contain a 'name' field",
                         file=sys.stderr,
                     )
                     sys.exit(1)
-                print(f"Configuration loaded from: {loaded_from}", file=sys.stderr)
+
+                print(f"Configuration loaded from: {description}", file=sys.stderr)
                 return config
-
-        except (ModuleNotFoundError, FileNotFoundError, NotADirectoryError):
-            # Error finding the resource path itself
-            pass  # Will fall through to error
-
-    # --- 3. Load from the determined local path or raise error ---
-    if config_to_load and config_to_load.is_file():
-        try:
-            with open(config_to_load, "r") as f:
-                config = yaml.safe_load(f)
-            print(
-                f"Configuration loaded from: {loaded_from} ({config_to_load})",
-                file=sys.stderr,
-            )
+        except (FileNotFoundError, NotADirectoryError, PermissionError):
+            continue
         except Exception as e:
             print(
-                f"Error reading configuration file {config_to_load}: {e}",
-                file=sys.stderr,
+                f"Error reading configuration from {description}: {e}", file=sys.stderr
             )
             sys.exit(1)
-    else:
-        # If config_to_load is still None after checking both locations
-        print(
-            f"Error: Configuration '{config_path_str}' not found locally or in package resources.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
 
-    # Ensure the config has a name field
-    if "name" not in config:
-        print(
-            "Error: Configuration file must contain a 'name' field",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    return config
+    print(
+        f"Error: Configuration '{config_path}' not found locally or in package resources.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def parse_arguments():
@@ -162,6 +131,12 @@ def parse_arguments():
         help="Disable automatic ungzipping of .gz input files (enabled by default)",
     )
 
+    parser.add_argument(
+        "--output-metadata",
+        type=str,
+        help="Path to save the metadata JSON from the response (minified).",
+    )
+
     # Add config file and input files as positional arguments
     parser.add_argument(
         "config_and_input_files",
@@ -172,7 +147,9 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def start_docker_container(docker_image):
+def start_docker_container(
+    docker_image: str,
+) -> Tuple[docker.models.containers.Container, str]:
     """Start a Docker container with the specified image and return the container ID and port."""
     # Generate a unique container name using UUID
     container_name = (
@@ -187,12 +164,12 @@ def start_docker_container(docker_image):
     # Pull the image if needed
     try:
         client.images.get(docker_image)
-    except docker.errors.ImageNotFound:
+    except Exception:
         print(f"Pulling image {docker_image}...", file=sys.stderr)
         client.images.pull(docker_image)
 
     # Start the container with a random port
-    container = client.containers.run(
+    container: docker.models.containers.Container = client.containers.run(
         docker_image,
         name=container_name,
         detach=True,
@@ -200,7 +177,8 @@ def start_docker_container(docker_image):
     )
 
     # Get the port that Docker assigned
-    container_info = client.containers.get(container.id)
+    container_id = str(container.id)
+    container_info = client.containers.get(container_id)
     port = container_info.ports["8000/tcp"][0]["HostPort"]
 
     print(f"Container running on port: {port}", file=sys.stderr)
@@ -226,7 +204,7 @@ def start_docker_container(docker_image):
     return container, port
 
 
-def stop_docker_container(container):
+def stop_docker_container(container: docker.models.containers.Container):
     """Stop and remove the Docker container."""
     print("Cleaning up...", file=sys.stderr)
 
@@ -235,11 +213,17 @@ def stop_docker_container(container):
     container.remove()
 
 
-def process_file(input_file, config, args, base_url, tool_name, output_dir_base):
+def process_file(
+    input_file: str,
+    config: Dict[str, Any],
+    args: argparse.Namespace,
+    base_url: str,
+    tool_name: str,
+    output_dir_base: str,
+):
     """Process a single input file using the specified tool configuration."""
     # Get file information
     input_base = os.path.splitext(os.path.basename(input_file))[0]
-    # Determine the effective output directory
     effective_output_dir = output_dir_base or os.path.dirname(
         os.path.abspath(input_file)
     )
@@ -259,35 +243,22 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
         return
 
     # Prepare input files for the 'files' parameter
-    files_to_upload = {}
-    temp_file = None
+    files_to_upload: Dict[str, Tuple[str, Union[BinaryIO, gzip.GzipFile]]] = {}
 
     # Get the input file path from config
     input_file_config_path = config.get("input_file")
     if input_file_config_path:
         try:
+            file_object: Union[BinaryIO, gzip.GzipFile]
             # Check if we need to ungzip the file
-            actual_input_file = input_file
             if not args.no_auto_ungzip and input_file.endswith(".gz"):
-                print(f"Ungzipping {input_file}...", file=sys.stderr)
-                # Create a temporary file
-                temp_file = tempfile.NamedTemporaryFile(delete=False)
-                temp_file.close()  # Close the file handle so we can write to it
+                print(f"Streaming ungzipped {input_file}...", file=sys.stderr)
+                file_object = gzip.open(input_file, "rb")
+            else:
+                file_object = open(input_file, "rb")
 
-                # Ungzip the input file to the temporary file
-                with gzip.open(input_file, "rb") as gz_file:
-                    with open(temp_file.name, "wb") as temp_out:
-                        temp_out.write(gz_file.read())
-
-                actual_input_file = temp_file.name
-                print(
-                    f"Ungzipped to temporary file: {actual_input_file}", file=sys.stderr
-                )
-
-            # Open in binary mode for requests 'files' parameter
             # Use the field name expected by the FastAPI server ("input_files")
             # and pass the configured filename within the tuple.
-            file_object = open(actual_input_file, "rb")
             files_to_upload["input_files"] = (input_file_config_path, file_object)
         except FileNotFoundError:
             print(f"Error: Input file {input_file} not found.", file=sys.stderr)
@@ -319,54 +290,68 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
         )
     finally:
         # Ensure uploaded files are closed
-        for _, f in files_to_upload.values():
-            f.close()
+        for _, fd in files_to_upload.values():
+            fd.close()
 
-        # Clean up temporary file if it was created
-        if temp_file and os.path.exists(temp_file.name):
-            os.unlink(temp_file.name)
+    # Prepare error metadata in case of failure
+    error_metadata: Dict[str, Any] = {
+        "status": "CLI2REST-FAILED",
+        "http_code": response.status_code,
+        "http_message": response.reason,
+        "exit_code": None,
+        "missing_files": output_file_names,
+        "execution_stats": {
+            "start_time": None,
+            "end_time": None,
+            "duration_seconds": None,
+            "max_rss_kb": None,
+            "cpu_user_seconds": None,
+        },
+        "stdout": None,
+        "stderr": None,
+        "command": full_arguments,
+    }
 
     if response.status_code != 200:
         print(f"Error processing {input_file}: {response.text}", file=sys.stderr)
+        if args.output_metadata:
+            try:
+                with open(args.output_metadata, "w") as f:
+                    json.dump(error_metadata, f, separators=(",", ":"))
+            except IOError as e:
+                print(f"Error writing metadata file: {e}", file=sys.stderr)
         return
 
-    # Extract the output and save to files
-    result = response.json()
+    # Parse the multipart response
+    raw_message = (
+        f"Content-Type: {response.headers.get('Content-Type')}\r\n\r\n".encode()
+        + response.content
+    )
+    msg = message_from_bytes(raw_message)
 
-    # Process output files from the response
-    if "output_files" in result and result["output_files"]:
-        # Save each output file
-        for output_file_data in result["output_files"]:
-            relative_path = output_file_data["relative_path"]
-            content_base64 = output_file_data.get("content_base64")
+    result: Dict[str, Any] = {}
+    for part in msg.walk():
+        if part.get_content_maintype() == "multipart":
+            continue
+        disposition = part.get("Content-Disposition", "")
 
-            if content_base64 is None:
-                print(
-                    f"Warning: Missing 'content_base64' for {relative_path} in response for {input_file}",
-                    file=sys.stderr,
-                )
-                continue  # Skip this file or handle as needed
-
-            # Decode the base64 content
-            try:
-                content_bytes = base64.b64decode(content_base64)
-            except base64.binascii.Error as e:
-                print(
-                    f"Error decoding base64 content for {relative_path}: {e}",
-                    file=sys.stderr,
-                )
-                continue  # Skip this file
+        if 'name="metadata"' in disposition:
+            payload = part.get_payload(decode=True)
+            if isinstance(payload, bytes):
+                result = json.loads(payload.decode("utf-8"))
+        elif "filename=" in disposition:
+            filename = part.get_filename()
+            payload = part.get_payload(decode=True)
+            if not isinstance(payload, bytes):
+                continue
+            content_bytes = payload
 
             # Create the file path with the formatted prefix
             prefixed_output_path = os.path.join(
-                effective_output_dir, f"{output_prefix}{relative_path}"
+                effective_output_dir, f"{output_prefix}{filename}"
             )
-
-            # Create output directory if it doesn't exist (should be created in main if specified,
-            # but good to have here for robustness if output_dir_base is None and relative_path contains subdirs)
             os.makedirs(os.path.dirname(prefixed_output_path), exist_ok=True)
 
-            # Write the decoded content (binary mode)
             try:
                 with open(prefixed_output_path, "wb") as f:
                     f.write(content_bytes)
@@ -377,28 +362,25 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
                     file=sys.stderr,
                 )
 
-    elif "error" in result:
+    if not result:
         print(
-            f"API returned an error for {input_file}: {result['error']}",
+            f"Error: No metadata found in response for {input_file}",
             file=sys.stderr,
         )
-    else:
-        # Report error if output_files are not in the response
+        result = error_metadata
+
+    if args.output_metadata:
+        try:
+            with open(args.output_metadata, "w") as f:
+                json.dump(result, f, separators=(",", ":"))
+        except IOError as e:
+            print(f"Error writing metadata file: {e}", file=sys.stderr)
+
+    if result.get("status") != "COMPLETED":
         print(
-            f"Error: No output_files found in response for {input_file}",
+            f"API returned status {result.get('status')} for {input_file}",
             file=sys.stderr,
         )
-
-    # Always create stdout and stderr files
-    stdout_path = os.path.join(effective_output_dir, f"{output_prefix}stdout.txt")
-    with open(stdout_path, "w") as f:
-        f.write(result["stdout"])
-    print(f"Saved stdout to: {stdout_path}", file=sys.stderr)
-
-    stderr_path = os.path.join(effective_output_dir, f"{output_prefix}stderr.txt")
-    with open(stderr_path, "w") as f:
-        f.write(result.get("stderr", ""))
-    print(f"Saved stderr to: {stderr_path}", file=sys.stderr)
 
 
 def main():
@@ -426,7 +408,7 @@ def main():
     # The load_tool_config function now prints where it loaded from
 
     # Get the input files (all arguments after the first one)
-    input_files = []
+    input_files: List[str] = []
     for input_file in args.config_and_input_files[1:]:
         # Check if the file exists
         if not os.path.isfile(input_file):
@@ -436,7 +418,7 @@ def main():
 
     # Determine if we're using an external API or starting a Docker container
     container = None
-    base_url = args.api_url
+    base_url: str = args.api_url
 
     # Create output directory if specified and it doesn't exist
     if args.output_dir:

@@ -7,5 +7,8 @@
       requirements = ./requirements.txt;
     };
   };
-  packages = [ pkgs.zlib ];
+  packages = with pkgs; [
+    pyright
+    zlib
+  ];
 }

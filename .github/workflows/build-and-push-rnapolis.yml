@@ -84,15 +84,34 @@ jobs:
           pip install .
           curl -L -o 1ehz.pdb https://files.rcsb.org/download/1EHZ.pdb
 
-          cli2rest-bio --api-url http://localhost:$HOST_PORT src/cli2rest_bio/configs/rnapolis/config-splitter.yaml 1ehz.pdb
+          cli2rest-bio --api-url http://localhost:$HOST_PORT --output-metadata metadata.json src/cli2rest_bio/configs/rnapolis/config-splitter.yaml 1ehz.pdb
+          if [ "$(jq -r .status metadata.json)" != "COMPLETED" ]; then
+            echo "Test failed: Job status is not COMPLETED"
+            cat metadata.json
+            exit 1
+          fi
 
-          for f in rnapolis-1ehz-output.tar.gz rnapolis-1ehz-stdout.txt rnapolis-1ehz-stderr.txt; do
+          for f in rnapolis-1ehz-output.tar.gz; do
             if [ ! -f "$f" ]; then
               echo "Test failed: Output file $f is missing."
               ls -l
               exit 1
             fi
           done
+
+          cli2rest-bio --api-url http://localhost:$HOST_PORT --output-metadata metadata.json src/cli2rest_bio/configs/rnapolis/config-annotator.yaml 1ehz.pdb
+          if [ "$(jq -r .status metadata.json)" != "COMPLETED" ]; then
+            echo "Test failed: Job status is not COMPLETED"
+            cat metadata.json
+            exit 1
+          fi
+
+          if [ ! -f "rnapolis-1ehz-output.json" ]; then
+            echo "Test failed: Output file rnapolis-1ehz-output.json is missing."
+            ls -l
+            exit 1
+          fi
+
           echo "Test passed: All output files created."
 
           docker stop cli2rest-rnapolis-test

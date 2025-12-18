@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cli2rest-bio"
-version = "0.3.2"
+version = "0.4.0"
 description = "CLI to REST API wrapper for bioinformatics tools"
 readme = "README.md"
 authors = [
