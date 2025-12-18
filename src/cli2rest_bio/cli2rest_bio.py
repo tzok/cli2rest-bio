@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 import argparse
-import base64
 import gzip
 import importlib.resources
+import json
 import os
 import sys
 import tempfile
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from email import message_from_bytes
 from pathlib import Path
 
 import docker
@@ -330,43 +331,31 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
         print(f"Error processing {input_file}: {response.text}", file=sys.stderr)
         return
 
-    # Extract the output and save to files
-    result = response.json()
+    # Parse the multipart response
+    raw_message = (
+        f"Content-Type: {response.headers.get('Content-Type')}\r\n\r\n".encode()
+        + response.content
+    )
+    msg = message_from_bytes(raw_message)
 
-    # Process output files from the response
-    if "output_files" in result and result["output_files"]:
-        # Save each output file
-        for output_file_data in result["output_files"]:
-            relative_path = output_file_data["relative_path"]
-            content_base64 = output_file_data.get("content_base64")
+    result = {}
+    for part in msg.walk():
+        if part.get_content_maintype() == "multipart":
+            continue
+        disposition = part.get("Content-Disposition", "")
 
-            if content_base64 is None:
-                print(
-                    f"Warning: Missing 'content_base64' for {relative_path} in response for {input_file}",
-                    file=sys.stderr,
-                )
-                continue  # Skip this file or handle as needed
-
-            # Decode the base64 content
-            try:
-                content_bytes = base64.b64decode(content_base64)
-            except base64.binascii.Error as e:
-                print(
-                    f"Error decoding base64 content for {relative_path}: {e}",
-                    file=sys.stderr,
-                )
-                continue  # Skip this file
+        if 'name="metadata"' in disposition:
+            result = json.loads(part.get_payload(decode=True))
+        elif "filename=" in disposition:
+            filename = part.get_filename()
+            content_bytes = part.get_payload(decode=True)
 
             # Create the file path with the formatted prefix
             prefixed_output_path = os.path.join(
-                effective_output_dir, f"{output_prefix}{relative_path}"
+                effective_output_dir, f"{output_prefix}{filename}"
             )
-
-            # Create output directory if it doesn't exist (should be created in main if specified,
-            # but good to have here for robustness if output_dir_base is None and relative_path contains subdirs)
             os.makedirs(os.path.dirname(prefixed_output_path), exist_ok=True)
 
-            # Write the decoded content (binary mode)
             try:
                 with open(prefixed_output_path, "wb") as f:
                     f.write(content_bytes)
@@ -377,22 +366,23 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
                     file=sys.stderr,
                 )
 
-    elif "error" in result:
+    if not result:
         print(
-            f"API returned an error for {input_file}: {result['error']}",
+            f"Error: No metadata found in response for {input_file}",
             file=sys.stderr,
         )
-    else:
-        # Report error if output_files are not in the response
+        return
+
+    if result.get("status") != "COMPLETED":
         print(
-            f"Error: No output_files found in response for {input_file}",
+            f"API returned status {result.get('status')} for {input_file}",
             file=sys.stderr,
         )
 
     # Always create stdout and stderr files
     stdout_path = os.path.join(effective_output_dir, f"{output_prefix}stdout.txt")
     with open(stdout_path, "w") as f:
-        f.write(result["stdout"])
+        f.write(result.get("stdout", ""))
     print(f"Saved stdout to: {stdout_path}", file=sys.stderr)
 
     stderr_path = os.path.join(effective_output_dir, f"{output_prefix}stderr.txt")
