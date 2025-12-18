@@ -6,17 +6,20 @@ import json
 import os
 import sys
 import time
+from typing import Any, BinaryIO, Dict, List, Tuple, Union
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from email import message_from_bytes
 from pathlib import Path
 
 import docker
+import docker.models
+import docker.models.containers
 import requests
 import yaml
 
 
-def load_tool_config(config_path_str):
+def load_tool_config(config_path: str):
     """
     Load the YAML configuration.
 
@@ -28,7 +31,7 @@ def load_tool_config(config_path_str):
     loaded_from = None
 
     # --- 1. Check relative to current working directory ---
-    local_path = Path(config_path_str).resolve()  # Resolve to absolute path
+    local_path = Path(config_path).resolve()  # Resolve to absolute path
 
     if local_path.is_file():
         config_to_load = local_path
@@ -47,28 +50,28 @@ def load_tool_config(config_path_str):
     if config_to_load is None:
         try:
             package_configs_path = importlib.resources.files("cli2rest_bio.configs")
-            resource_path = package_configs_path.joinpath(config_path_str)
+            resource_path = package_configs_path.joinpath(config_path)
 
             config = None
             if resource_path.is_file():
                 # Need to open via importlib.resources for zip safety
                 with resource_path.open("r") as f:
                     config = yaml.safe_load(f)
-                loaded_from = f"package resource file ({config_path_str})"
+                loaded_from = f"package resource file ({config_path})"
             elif resource_path.is_dir():
-                yaml_path = resource_path / "config.yaml"
-                yml_path = resource_path / "config.yml"
-                if yaml_path.is_file():
-                    with yaml_path.open("r") as f:
+                yaml_path_res = resource_path / "config.yaml"
+                yml_path_res = resource_path / "config.yml"
+                if yaml_path_res.is_file():
+                    with yaml_path_res.open("r") as f:
                         config = yaml.safe_load(f)
                     loaded_from = (
-                        f"package resource directory ({config_path_str}/config.yaml)"
+                        f"package resource directory ({config_path}/config.yaml)"
                     )
-                elif yml_path.is_file():
-                    with yml_path.open("r") as f:
+                elif yml_path_res.is_file():
+                    with yml_path_res.open("r") as f:
                         config = yaml.safe_load(f)
                     loaded_from = (
-                        f"package resource directory ({config_path_str}/config.yml)"
+                        f"package resource directory ({config_path}/config.yml)"
                     )
 
             # If we loaded config from package resource, return it directly
@@ -105,7 +108,7 @@ def load_tool_config(config_path_str):
     else:
         # If config_to_load is still None after checking both locations
         print(
-            f"Error: Configuration '{config_path_str}' not found locally or in package resources.",
+            f"Error: Configuration '{config_path}' not found locally or in package resources.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -170,7 +173,9 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def start_docker_container(docker_image: str):
+def start_docker_container(
+    docker_image: str,
+) -> Tuple[docker.models.containers.Container, str]:
     """Start a Docker container with the specified image and return the container ID and port."""
     # Generate a unique container name using UUID
     container_name = (
@@ -192,7 +197,7 @@ def start_docker_container(docker_image: str):
         client.images.pull(docker_image)
 
     # Start the container with a random port
-    container = client.containers.run(
+    container: docker.models.containers.Container = client.containers.run(
         docker_image,
         name=container_name,
         detach=True,
@@ -227,7 +232,7 @@ def start_docker_container(docker_image: str):
     return container, port
 
 
-def stop_docker_container(container):
+def stop_docker_container(container: docker.models.containers.Container):
     """Stop and remove the Docker container."""
     print("Cleaning up...", file=sys.stderr)
 
@@ -236,7 +241,14 @@ def stop_docker_container(container):
     container.remove()
 
 
-def process_file(input_file, config, args, base_url, tool_name, output_dir_base):
+def process_file(
+    input_file: str,
+    config: Dict[str, Any],
+    args: argparse.Namespace,
+    base_url: str,
+    tool_name: str,
+    output_dir_base: str,
+):
     """Process a single input file using the specified tool configuration."""
     # Get file information
     input_base = os.path.splitext(os.path.basename(input_file))[0]
@@ -260,12 +272,13 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
         return
 
     # Prepare input files for the 'files' parameter
-    files_to_upload = {}
+    files_to_upload: Dict[str, Tuple[str, Union[BinaryIO, gzip.GzipFile]]] = {}
 
     # Get the input file path from config
     input_file_config_path = config.get("input_file")
     if input_file_config_path:
         try:
+            file_object: Union[BinaryIO, gzip.GzipFile]
             # Check if we need to ungzip the file
             if not args.no_auto_ungzip and input_file.endswith(".gz"):
                 print(f"Streaming ungzipped {input_file}...", file=sys.stderr)
@@ -320,7 +333,7 @@ def process_file(input_file, config, args, base_url, tool_name, output_dir_base)
     )
     msg = message_from_bytes(raw_message)
 
-    result = {}
+    result: Dict[str, Any] = {}
     for part in msg.walk():
         if part.get_content_maintype() == "multipart":
             continue
@@ -392,7 +405,7 @@ def main():
     # The load_tool_config function now prints where it loaded from
 
     # Get the input files (all arguments after the first one)
-    input_files = []
+    input_files: List[str] = []
     for input_file in args.config_and_input_files[1:]:
         # Check if the file exists
         if not os.path.isfile(input_file):
@@ -402,7 +415,7 @@ def main():
 
     # Determine if we're using an external API or starting a Docker container
     container = None
-    base_url = args.api_url
+    base_url: str = args.api_url
 
     # Create output directory if specified and it doesn't exist
     if args.output_dir:
