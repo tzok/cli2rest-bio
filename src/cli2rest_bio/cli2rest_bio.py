@@ -2,6 +2,7 @@
 import argparse
 import gzip
 import importlib.resources
+from importlib.resources.abc import Traversable
 import json
 import os
 import sys
@@ -28,7 +29,7 @@ def load_tool_config(config_path: str):
     Handles both direct file paths and directory paths (looking for config.yaml/yml).
     """
     # Define candidates as (path_object, description)
-    candidates = []
+    candidates: List[Tuple[Path | Traversable, str]] = []
 
     # 1. Local filesystem candidates
     local_base = Path(config_path).resolve()
@@ -130,6 +131,12 @@ def parse_arguments():
         help="Disable automatic ungzipping of .gz input files (enabled by default)",
     )
 
+    parser.add_argument(
+        "--output-metadata",
+        type=str,
+        help="Path to save the metadata JSON from the response (minified).",
+    )
+
     # Add config file and input files as positional arguments
     parser.add_argument(
         "config_and_input_files",
@@ -158,8 +165,6 @@ def start_docker_container(
     try:
         client.images.get(docker_image)
     except Exception:
-        # docker.errors might not be directly accessible depending on environment
-        # but we can catch the general exception and try to pull
         print(f"Pulling image {docker_image}...", file=sys.stderr)
         client.images.pull(docker_image)
 
@@ -291,6 +296,29 @@ def process_file(
 
     if response.status_code != 200:
         print(f"Error processing {input_file}: {response.text}", file=sys.stderr)
+        if args.output_metadata:
+            error_metadata = {
+                "status": "CLI2REST-FAILED",
+                "http_code": response.status_code,
+                "http_message": response.reason,
+                "exit_code": None,
+                "missing_files": output_file_names,
+                "execution_stats": {
+                    "start_time": None,
+                    "end_time": None,
+                    "duration_seconds": None,
+                    "max_rss_kb": None,
+                    "cpu_user_seconds": None,
+                },
+                "stdout": None,
+                "stderr": None,
+                "command": full_arguments,
+            }
+            try:
+                with open(args.output_metadata, "w") as f:
+                    json.dump(error_metadata, f, separators=(",", ":"))
+            except IOError as e:
+                print(f"Error writing metadata file: {e}", file=sys.stderr)
         return
 
     # Parse the multipart response
@@ -338,7 +366,37 @@ def process_file(
             f"Error: No metadata found in response for {input_file}",
             file=sys.stderr,
         )
+        if args.output_metadata:
+            error_metadata = {
+                "status": "CLI2REST-FAILED",
+                "http_code": response.status_code,
+                "http_message": "No metadata in multipart response",
+                "exit_code": None,
+                "missing_files": output_file_names,
+                "execution_stats": {
+                    "start_time": None,
+                    "end_time": None,
+                    "duration_seconds": None,
+                    "max_rss_kb": None,
+                    "cpu_user_seconds": None,
+                },
+                "stdout": None,
+                "stderr": None,
+                "command": full_arguments,
+            }
+            try:
+                with open(args.output_metadata, "w") as f:
+                    json.dump(error_metadata, f, separators=(",", ":"))
+            except IOError as e:
+                print(f"Error writing metadata file: {e}", file=sys.stderr)
         return
+
+    if args.output_metadata:
+        try:
+            with open(args.output_metadata, "w") as f:
+                json.dump(result, f, separators=(",", ":"))
+        except IOError as e:
+            print(f"Error writing metadata file: {e}", file=sys.stderr)
 
     if result.get("status") != "COMPLETED":
         print(
