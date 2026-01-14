@@ -37,6 +37,7 @@ src/cli2rest_bio/configs/mc-annotate/config.yaml
 src/cli2rest_bio/configs/rchie/config.yaml
 src/cli2rest_bio/configs/reduce/config.yaml
 src/cli2rest_bio/configs/rnapolis/config-annotator.yaml
+src/cli2rest_bio/configs/rnapolis/config-coplanarity-checker.yaml
 src/cli2rest_bio/configs/rnapolis/config-splitter.yaml
 src/cli2rest_bio/configs/rnapolis/config-unifier.yaml
 src/cli2rest_bio/configs/rnaview/config-cif.yaml
