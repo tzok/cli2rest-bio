@@ -27,5 +27,10 @@ COPY --from=builder /opt/venv /opt/venv
 
 COPY unifier-wrapper.py /usr/local/bin/unifier-wrapper.py
 COPY splitter-wrapper.py /usr/local/bin/splitter-wrapper.py
-RUN chmod +x /usr/local/bin/unifier-wrapper.py
-RUN chmod +x /usr/local/bin/splitter-wrapper.py
+COPY coplanarity-checker-wrapper.py /usr/local/bin/coplanarity-checker-wrapper.py
+COPY base-triple.cif /usr/local/share/rnapolis/base-triple.cif
+
+RUN chmod +x \
+      /usr/local/bin/unifier-wrapper.py \
+      /usr/local/bin/splitter-wrapper.py \
+      /usr/local/bin/coplanarity-checker-wrapper.py
