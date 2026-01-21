@@ -63,7 +63,7 @@ jobs:
           IMAGE="ghcr.io/tzok/cli2rest-fr3d"
           UPSTREAM="${{ steps.get_version.outputs.upstream }}"
           VERSION_REF="$IMAGE:$UPSTREAM"
-          LATEST_REF="$IMAGE:latest"
+          FLOATING_REF="$IMAGE:${{ matrix.branch }}"
 
           STALE_SECONDS=$((7*24*60*60))
           NOW_EPOCH="$(date -u +%s)"
@@ -80,32 +80,26 @@ jobs:
             should_build=true
             build_tag="$UPSTREAM"
           else
-            # Only the matrix.branch==latest lane is responsible for keeping :latest fresh.
-            if [[ "${{ matrix.branch }}" != "latest" ]]; then
-              should_promote=false
-              should_build=false
-            else
-              if docker manifest inspect "$LATEST_REF" >/dev/null 2>&1; then
-                latest_json="$(skopeo inspect "docker://$LATEST_REF")"
-                latest_upstream="$(echo "$latest_json" | jq -r '.Labels["org.cli2rest.upstream"] // ""')"
-                latest_created="$(echo "$latest_json" | jq -r '.Created // ""')"
+            if docker manifest inspect "$FLOATING_REF" >/dev/null 2>&1; then
+              floating_json="$(skopeo inspect "docker://$FLOATING_REF")"
+              floating_upstream="$(echo "$floating_json" | jq -r '.Labels["org.cli2rest.upstream"] // ""')"
+              floating_created="$(echo "$floating_json" | jq -r '.Created // ""')"
 
-                if [[ -n "$latest_created" ]]; then
-                  created_epoch="$(date -u -d "$latest_created" +%s || echo 0)"
-                  age=$((NOW_EPOCH - created_epoch))
-                  if [[ "$age" -ge "$STALE_SECONDS" ]]; then
-                    should_build=true
-                    build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
-                  elif [[ "$latest_upstream" != "$UPSTREAM" ]]; then
-                    should_promote=true
-                  fi
-                else
+              if [[ -n "$floating_created" ]]; then
+                created_epoch="$(date -u -d "$floating_created" +%s || echo 0)"
+                age=$((NOW_EPOCH - created_epoch))
+                if [[ "$age" -ge "$STALE_SECONDS" ]]; then
                   should_build=true
                   build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
+                elif [[ "$floating_upstream" != "$UPSTREAM" ]]; then
+                  should_promote=true
                 fi
               else
-                should_promote=true
+                should_build=true
+                build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
               fi
+            else
+              should_promote=true
             fi
           fi
 
@@ -130,7 +124,7 @@ jobs:
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-fr3d:test-{0}', matrix.branch) || '' }}
             ${{ github.event_name != 'pull_request' && format('ghcr.io/tzok/cli2rest-fr3d:{0}', steps.decide.outputs.build_tag) || '' }}
-            ${{ github.event_name != 'pull_request' && matrix.branch == 'latest' && 'ghcr.io/tzok/cli2rest-fr3d:latest' || '' }}
+            ${{ github.event_name != 'pull_request' && format('ghcr.io/tzok/cli2rest-fr3d:{0}', matrix.branch) || '' }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}
           cache-to: type=gha,mode=max
 
@@ -170,11 +164,11 @@ jobs:
 
           docker rm -f cli2rest-fr3d-test-${{ matrix.branch }}
 
-      - name: Promote latest to current upstream
-        if: github.event_name != 'pull_request' && matrix.branch == 'latest' && steps.decide.outputs.should_build != 'true' && steps.decide.outputs.should_promote == 'true'
+      - name: Promote floating tag to current upstream
+        if: github.event_name != 'pull_request' && steps.decide.outputs.should_build != 'true' && steps.decide.outputs.should_promote == 'true'
         run: |
           IMAGE="ghcr.io/tzok/cli2rest-fr3d"
           UPSTREAM="${{ steps.decide.outputs.upstream }}"
 
-          echo "Promoting $IMAGE:$UPSTREAM -> $IMAGE:latest"
-          docker buildx imagetools create -t "$IMAGE:latest" "$IMAGE:$UPSTREAM"
+          echo "Promoting $IMAGE:$UPSTREAM -> $IMAGE:${{ matrix.branch }}"
+          docker buildx imagetools create -t "$IMAGE:${{ matrix.branch }}" "$IMAGE:$UPSTREAM"
