@@ -2,9 +2,9 @@ name: Build and Push cli2rest-fr3d image
 
 on:
   schedule:
-    # Run daily at 1:00 UTC
-    - cron: '0 1 * * *'
-  workflow_dispatch:  # Allow manual triggering
+    # Weekly refresh (staleness window is 7 days)
+    - cron: '0 1 * * 0'
+  workflow_dispatch:
   pull_request:
   push:
     branches: [ main ]
@@ -16,9 +16,9 @@ jobs:
       contents: read
       packages: write
     strategy:
-      fail-fast: false # Allow other matrix jobs to continue if one fails
+      fail-fast: false
       matrix:
-        branch: [latest, master] # Branches to build from FR3D repo
+        branch: [latest, master]
 
     steps:
       - name: Checkout repository
@@ -36,68 +36,122 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get latest FR3D commit hash
-        id: get_commit
+        id: get_version
         run: |
-          # Get the latest commit hash for the current matrix branch
           LATEST_COMMIT=$(git ls-remote https://github.com/BGSU-RNA/fr3d-python.git ${{ matrix.branch }} | cut -f1)
           SHORT_COMMIT=${LATEST_COMMIT:0:7}
+          UPSTREAM="${{ matrix.branch }}-${SHORT_COMMIT}"
+
           echo "Latest FR3D commit for ${{ matrix.branch }}: $LATEST_COMMIT"
-          echo "commit_hash=$LATEST_COMMIT" >> $GITHUB_OUTPUT
-          echo "short_commit=$SHORT_COMMIT" >> $GITHUB_OUTPUT
+          echo "commit_hash=$LATEST_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "short_commit=$SHORT_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "upstream=$UPSTREAM" >> "$GITHUB_OUTPUT"
         shell: bash
 
-      - name: Check if target tag already exists in GHCR
-        id: check_tag
+      - name: Install registry tooling
         if: github.event_name != 'pull_request'
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "Manual trigger detected. Forcing rebuild."
-            echo "should_build=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          SHORT_COMMIT="${{ steps.get_commit.outputs.short_commit }}"
-          BRANCH_NAME="${{ matrix.branch }}"
-          TARGET_TAG="ghcr.io/tzok/cli2rest-fr3d:$BRANCH_NAME-$SHORT_COMMIT"
-          
-          if docker manifest inspect "$TARGET_TAG" > /dev/null; then
-            echo "Image $TARGET_TAG already exists. Skipping build."
-            echo "should_build=false" >> $GITHUB_OUTPUT
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends skopeo jq
+
+      - name: Decide whether to rebuild
+        id: decide
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+
+          IMAGE="ghcr.io/tzok/cli2rest-fr3d"
+          UPSTREAM="${{ steps.get_version.outputs.upstream }}"
+          VERSION_REF="$IMAGE:$UPSTREAM"
+          LATEST_REF="$IMAGE:latest"
+
+          STALE_SECONDS=$((7*24*60*60))
+          NOW_EPOCH="$(date -u +%s)"
+          REBUILD_SUFFIX="r$(date -u +%Y%m%d%H%M%S)"
+
+          should_build=false
+          build_tag=""
+          should_promote=false
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            should_build=true
+            build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
+          elif ! docker manifest inspect "$VERSION_REF" >/dev/null 2>&1; then
+            should_build=true
+            build_tag="$UPSTREAM"
           else
-            echo "Image $TARGET_TAG not found. Proceeding with build."
-            echo "should_build=true" >> $GITHUB_OUTPUT
+            # Only the matrix.branch==latest lane is responsible for keeping :latest fresh.
+            if [[ "${{ matrix.branch }}" != "latest" ]]; then
+              should_promote=false
+              should_build=false
+            else
+              if docker manifest inspect "$LATEST_REF" >/dev/null 2>&1; then
+                latest_json="$(skopeo inspect "docker://$LATEST_REF")"
+                latest_upstream="$(echo "$latest_json" | jq -r '.Labels["org.cli2rest.upstream"] // ""')"
+                latest_created="$(echo "$latest_json" | jq -r '.Created // ""')"
+
+                if [[ -n "$latest_created" ]]; then
+                  created_epoch="$(date -u -d "$latest_created" +%s || echo 0)"
+                  age=$((NOW_EPOCH - created_epoch))
+                  if [[ "$age" -ge "$STALE_SECONDS" ]]; then
+                    should_build=true
+                    build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
+                  elif [[ "$latest_upstream" != "$UPSTREAM" ]]; then
+                    should_promote=true
+                  fi
+                else
+                  should_build=true
+                  build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
+                fi
+              else
+                should_promote=true
+              fi
+            fi
           fi
+
+          echo "should_build=$should_build" >> "$GITHUB_OUTPUT"
+          echo "build_tag=$build_tag" >> "$GITHUB_OUTPUT"
+          echo "should_promote=$should_promote" >> "$GITHUB_OUTPUT"
+          echo "upstream=$UPSTREAM" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Build and Push Docker image
-        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
+        if: github.event_name == 'pull_request' || steps.decide.outputs.should_build == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./fr3d
-          push: ${{ github.event_name != 'pull_request' }}
-          load: true
           build-args: |
             FR3D_BRANCH=${{ matrix.branch }}
+          push: ${{ github.event_name != 'pull_request' }}
+          load: true
+          labels: |
+            org.cli2rest.upstream=${{ steps.get_version.outputs.upstream }}
+            org.opencontainers.image.revision=${{ github.sha }}
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-fr3d:test-{0}', matrix.branch) || '' }}
-            ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}-${{ steps.get_commit.outputs.short_commit }}
-            ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}
-            ${{ matrix.branch == 'latest' && format('ghcr.io/tzok/cli2rest-fr3d:latest') || '' }}
+            ${{ github.event_name != 'pull_request' && format('ghcr.io/tzok/cli2rest-fr3d:{0}', steps.decide.outputs.build_tag) || '' }}
+            ${{ github.event_name != 'pull_request' && matrix.branch == 'latest' && 'ghcr.io/tzok/cli2rest-fr3d:latest' || '' }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
-        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
+        if: github.event_name == 'pull_request' || steps.decide.outputs.should_build == 'true'
         run: |
-          docker run --name cli2rest-fr3d-test-${{ matrix.branch }} -d -p 8000 ghcr.io/tzok/cli2rest-fr3d:test-${{ matrix.branch }}
-          sleep 5 # Wait for container to start
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            TEST_IMAGE="ghcr.io/tzok/cli2rest-fr3d:test-${{ matrix.branch }}"
+          else
+            TEST_IMAGE="ghcr.io/tzok/cli2rest-fr3d:${{ steps.decide.outputs.build_tag }}"
+          fi
+
+          docker run --name cli2rest-fr3d-test-${{ matrix.branch }} -d -p 8000 "$TEST_IMAGE"
+          sleep 5
           HOST_PORT=$(docker port cli2rest-fr3d-test-${{ matrix.branch }} 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
 
           pip install .
           curl -L -o 1ehz.cif https://files.rcsb.org/download/1EHZ.cif
 
-          cli2rest-bio --api-url http://localhost:$HOST_PORT --output-metadata metadata.json src/cli2rest_bio/configs/fr3d/config.yaml 1ehz.cif
+          cli2rest-bio --api-url "http://localhost:$HOST_PORT" --output-metadata metadata.json src/cli2rest_bio/configs/fr3d/config.yaml 1ehz.cif
           if [ "$(jq -r .status metadata.json)" != "COMPLETED" ]; then
             echo "Test failed: Job status is not COMPLETED"
             cat metadata.json
@@ -111,7 +165,16 @@ jobs:
               exit 1
             fi
           done
+
           echo "Test passed: All output files created."
 
-          docker stop cli2rest-fr3d-test-${{ matrix.branch }}
+          docker rm -f cli2rest-fr3d-test-${{ matrix.branch }}
 
+      - name: Promote latest to current upstream
+        if: github.event_name != 'pull_request' && matrix.branch == 'latest' && steps.decide.outputs.should_build != 'true' && steps.decide.outputs.should_promote == 'true'
+        run: |
+          IMAGE="ghcr.io/tzok/cli2rest-fr3d"
+          UPSTREAM="${{ steps.decide.outputs.upstream }}"
+
+          echo "Promoting $IMAGE:$UPSTREAM -> $IMAGE:latest"
+          docker buildx imagetools create -t "$IMAGE:latest" "$IMAGE:$UPSTREAM"

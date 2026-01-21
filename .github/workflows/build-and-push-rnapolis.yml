@@ -2,9 +2,9 @@ name: Build and Push cli2rest-rnapolis image
 
 on:
   schedule:
-    # Run daily at 1:00 UTC
-    - cron: '0 1 * * *'
-  workflow_dispatch:  # Allow manual triggering
+    # Weekly refresh (staleness window is 7 days)
+    - cron: '0 1 * * 0'
+  workflow_dispatch:
   pull_request:
   push:
     branches: [ main ]
@@ -36,56 +36,104 @@ jobs:
         run: |
           VERSION=$(grep 'rnapolis==' rnapolis/requirements.txt | cut -d'=' -f3)
           echo "Extracted RNAPOLIS version: $VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Check if target tag already exists in GHCR
-        id: check_tag
+      - name: Install registry tooling
         if: github.event_name != 'pull_request'
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "Manual trigger detected. Forcing rebuild."
-            echo "should_build=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          TARGET_TAG="ghcr.io/tzok/cli2rest-rnapolis:${{ steps.get_version.outputs.version }}"
-          
-          if docker manifest inspect "$TARGET_TAG" > /dev/null; then
-            echo "Image $TARGET_TAG already exists. Skipping build."
-            echo "should_build=false" >> $GITHUB_OUTPUT
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends skopeo jq
+
+      - name: Decide whether to rebuild
+        id: decide
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+
+          IMAGE="ghcr.io/tzok/cli2rest-rnapolis"
+          UPSTREAM="${{ steps.get_version.outputs.version }}"
+          VERSION_REF="$IMAGE:$UPSTREAM"
+          LATEST_REF="$IMAGE:latest"
+
+          STALE_SECONDS=$((7*24*60*60))
+          NOW_EPOCH="$(date -u +%s)"
+          REBUILD_SUFFIX="r$(date -u +%Y%m%d%H%M%S)"
+
+          should_build=false
+          build_tag=""
+          should_promote=false
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            should_build=true
+            build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
+          elif ! docker manifest inspect "$VERSION_REF" >/dev/null 2>&1; then
+            should_build=true
+            build_tag="$UPSTREAM"
           else
-            echo "Image $TARGET_TAG not found. Proceeding with build."
-            echo "should_build=true" >> $GITHUB_OUTPUT
+            if docker manifest inspect "$LATEST_REF" >/dev/null 2>&1; then
+              latest_json="$(skopeo inspect "docker://$LATEST_REF")"
+              latest_upstream="$(echo "$latest_json" | jq -r '.Labels["org.cli2rest.upstream"] // ""')"
+              latest_created="$(echo "$latest_json" | jq -r '.Created // ""')"
+
+              if [[ -n "$latest_created" ]]; then
+                created_epoch="$(date -u -d "$latest_created" +%s || echo 0)"
+                age=$((NOW_EPOCH - created_epoch))
+                if [[ "$age" -ge "$STALE_SECONDS" ]]; then
+                  should_build=true
+                  build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
+                elif [[ "$latest_upstream" != "$UPSTREAM" ]]; then
+                  should_promote=true
+                fi
+              else
+                should_build=true
+                build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
+              fi
+            else
+              should_promote=true
+            fi
           fi
+
+          echo "should_build=$should_build" >> "$GITHUB_OUTPUT"
+          echo "build_tag=$build_tag" >> "$GITHUB_OUTPUT"
+          echo "should_promote=$should_promote" >> "$GITHUB_OUTPUT"
+          echo "upstream=$UPSTREAM" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Build and Push Docker image
-        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
+        if: github.event_name == 'pull_request' || steps.decide.outputs.should_build == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./rnapolis
           push: ${{ github.event_name != 'pull_request' }}
           load: true
+          labels: |
+            org.cli2rest.upstream=${{ steps.get_version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
           tags: |
-            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-rnapolis:test') || '' }}
-            ghcr.io/tzok/cli2rest-rnapolis:latest
-            ghcr.io/tzok/cli2rest-rnapolis:${{ steps.get_version.outputs.version }}
+            ${{ github.event_name == 'pull_request' && 'ghcr.io/tzok/cli2rest-rnapolis:test' || '' }}
+            ${{ github.event_name != 'pull_request' && format('ghcr.io/tzok/cli2rest-rnapolis:{0}', steps.decide.outputs.build_tag) || '' }}
+            ${{ github.event_name != 'pull_request' && 'ghcr.io/tzok/cli2rest-rnapolis:latest' || '' }}
           cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-rnapolis:latest
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
-        if: github.event_name == 'pull_request' || steps.check_tag.outputs.should_build == 'true'
+        if: github.event_name == 'pull_request' || steps.decide.outputs.should_build == 'true'
         run: |
-          docker run --name cli2rest-rnapolis-test -d -p 8000 ghcr.io/tzok/cli2rest-rnapolis:test
-          sleep 5 # Wait for container to start
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            TEST_IMAGE="ghcr.io/tzok/cli2rest-rnapolis:test"
+          else
+            TEST_IMAGE="ghcr.io/tzok/cli2rest-rnapolis:${{ steps.decide.outputs.build_tag }}"
+          fi
+
+          docker run --name cli2rest-rnapolis-test -d -p 8000 "$TEST_IMAGE"
+          sleep 5
           HOST_PORT=$(docker port cli2rest-rnapolis-test 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
 
           pip install .
 
-          # Verify coplanarity-checker-wrapper.py via cli2rest-bio
           docker cp cli2rest-rnapolis-test:/usr/local/share/rnapolis/base-triple.cif base-triple.cif
-          cli2rest-bio --api-url http://localhost:$HOST_PORT --output-metadata metadata.json src/cli2rest_bio/configs/rnapolis/config-coplanarity-checker.yaml base-triple.cif
+          cli2rest-bio --api-url "http://localhost:$HOST_PORT" --output-metadata metadata.json src/cli2rest_bio/configs/rnapolis/config-coplanarity-checker.yaml base-triple.cif
           if [ "$(jq -r .status metadata.json)" != "COMPLETED" ]; then
             echo "Test failed: Coplanarity job status is not COMPLETED"
             cat metadata.json
@@ -95,22 +143,20 @@ jobs:
 
           curl -L -o 1ehz.pdb https://files.rcsb.org/download/1EHZ.pdb
 
-          cli2rest-bio --api-url http://localhost:$HOST_PORT --output-metadata metadata.json src/cli2rest_bio/configs/rnapolis/config-splitter.yaml 1ehz.pdb
+          cli2rest-bio --api-url "http://localhost:$HOST_PORT" --output-metadata metadata.json src/cli2rest_bio/configs/rnapolis/config-splitter.yaml 1ehz.pdb
           if [ "$(jq -r .status metadata.json)" != "COMPLETED" ]; then
             echo "Test failed: Job status is not COMPLETED"
             cat metadata.json
             exit 1
           fi
 
-          for f in rnapolis-1ehz-output.tar.gz; do
-            if [ ! -f "$f" ]; then
-              echo "Test failed: Output file $f is missing."
-              ls -l
-              exit 1
-            fi
-          done
+          if [ ! -f "rnapolis-1ehz-output.tar.gz" ]; then
+            echo "Test failed: Output file rnapolis-1ehz-output.tar.gz is missing."
+            ls -l
+            exit 1
+          fi
 
-          cli2rest-bio --api-url http://localhost:$HOST_PORT --output-metadata metadata.json src/cli2rest_bio/configs/rnapolis/config-annotator.yaml 1ehz.pdb
+          cli2rest-bio --api-url "http://localhost:$HOST_PORT" --output-metadata metadata.json src/cli2rest_bio/configs/rnapolis/config-annotator.yaml 1ehz.pdb
           if [ "$(jq -r .status metadata.json)" != "COMPLETED" ]; then
             echo "Test failed: Job status is not COMPLETED"
             cat metadata.json
@@ -125,5 +171,13 @@ jobs:
 
           echo "Test passed: All output files created."
 
-          docker stop cli2rest-rnapolis-test
+          docker rm -f cli2rest-rnapolis-test
 
+      - name: Promote latest to current upstream
+        if: github.event_name != 'pull_request' && steps.decide.outputs.should_build != 'true' && steps.decide.outputs.should_promote == 'true'
+        run: |
+          IMAGE="ghcr.io/tzok/cli2rest-rnapolis"
+          UPSTREAM="${{ steps.decide.outputs.upstream }}"
+
+          echo "Promoting $IMAGE:$UPSTREAM -> $IMAGE:latest"
+          docker buildx imagetools create -t "$IMAGE:latest" "$IMAGE:$UPSTREAM"
