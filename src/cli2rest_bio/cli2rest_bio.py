@@ -383,6 +383,171 @@ def process_file(
         )
 
 
+def process_files_batch(
+    input_files: List[str],
+    config: Dict[str, Any],
+    args: argparse.Namespace,
+    base_url: str,
+    tool_name: str,
+    output_dir_base: str,
+):
+    """Process multiple input files in a single API call (batch mode)."""
+    effective_output_dir = output_dir_base or os.getcwd()
+
+    # Use tool name only as prefix for batch mode
+    output_prefix = f"{tool_name}-"
+
+    print(
+        f"Processing {len(input_files)} file(s) in batch mode", file=sys.stderr
+    )
+
+    full_arguments = config.get("arguments", [])
+    if not full_arguments:
+        print("Error: No arguments specified in configuration", file=sys.stderr)
+        return
+
+    # Prepare multiple input files for upload
+    files_to_upload: List[Tuple[str, Tuple[str, Union[BinaryIO, gzip.GzipFile]]]] = []
+    opened_files: List[Union[BinaryIO, gzip.GzipFile]] = []
+
+    for input_file in input_files:
+        try:
+            file_object: Union[BinaryIO, gzip.GzipFile]
+            filename = os.path.basename(input_file)
+            if not args.no_auto_ungzip and input_file.endswith(".gz"):
+                print(f"Streaming ungzipped {input_file}...", file=sys.stderr)
+                file_object = gzip.open(input_file, "rb")
+                # Strip .gz extension for the uploaded filename
+                filename = os.path.splitext(filename)[0]
+            else:
+                file_object = open(input_file, "rb")
+
+            files_to_upload.append(("input_files", (filename, file_object)))
+            opened_files.append(file_object)
+        except FileNotFoundError:
+            print(f"Error: Input file {input_file} not found.", file=sys.stderr)
+            for f in opened_files:
+                f.close()
+            return
+        except Exception as e:
+            print(
+                f"Error opening input file {input_file}: {e}", file=sys.stderr
+            )
+            for f in opened_files:
+                f.close()
+            return
+
+    # Get expected output file names
+    output_file_names = config.get("output_files", [])
+
+    # Prepare form data
+    form_data = {
+        "arguments": tuple(full_arguments),
+        "output_files": tuple(output_file_names),
+    }
+
+    # Send the request
+    try:
+        response = requests.post(
+            f"{base_url}/run-command",
+            data=form_data,
+            files=files_to_upload,
+        )
+    finally:
+        for f in opened_files:
+            f.close()
+
+    # Prepare error metadata in case of failure
+    error_metadata: Dict[str, Any] = {
+        "status": "CLI2REST-FAILED",
+        "http_code": response.status_code,
+        "http_message": response.reason,
+        "exit_code": None,
+        "missing_files": output_file_names,
+        "execution_stats": {
+            "start_time": None,
+            "end_time": None,
+            "duration_seconds": None,
+            "max_rss_kb": None,
+            "cpu_user_seconds": None,
+        },
+        "stdout": None,
+        "stderr": None,
+        "command": full_arguments,
+    }
+
+    if response.status_code != 200:
+        print(f"Error processing batch: {response.text}", file=sys.stderr)
+        if args.output_metadata:
+            try:
+                with open(args.output_metadata, "w") as f:
+                    json.dump(error_metadata, f, separators=(",", ":"))
+            except IOError as e:
+                print(f"Error writing metadata file: {e}", file=sys.stderr)
+        return
+
+    # Parse the multipart response
+    raw_message = (
+        f"Content-Type: {response.headers.get('Content-Type')}\r\n\r\n".encode()
+        + response.content
+    )
+    msg = message_from_bytes(raw_message)
+
+    result: Dict[str, Any] = {}
+    for part in msg.walk():
+        if part.get_content_maintype() == "multipart":
+            continue
+        disposition = part.get("Content-Disposition", "")
+
+        if 'name="metadata"' in disposition:
+            payload = part.get_payload(decode=True)
+            if isinstance(payload, bytes):
+                result = json.loads(payload.decode("utf-8"))
+        elif "filename=" in disposition:
+            filename = part.get_filename()
+            payload = part.get_payload(decode=True)
+            if not isinstance(payload, bytes):
+                continue
+            content_bytes = payload
+
+            prefixed_output_path = os.path.join(
+                effective_output_dir, f"{output_prefix}{filename}"
+            )
+            os.makedirs(os.path.dirname(prefixed_output_path), exist_ok=True)
+
+            try:
+                with open(prefixed_output_path, "wb") as f:
+                    f.write(content_bytes)
+                print(
+                    f"Saved output to: {prefixed_output_path}", file=sys.stderr
+                )
+            except IOError as e:
+                print(
+                    f"Error writing output file {prefixed_output_path}: {e}",
+                    file=sys.stderr,
+                )
+
+    if not result:
+        print(
+            "Error: No metadata found in batch response",
+            file=sys.stderr,
+        )
+        result = error_metadata
+
+    if args.output_metadata:
+        try:
+            with open(args.output_metadata, "w") as f:
+                json.dump(result, f, separators=(",", ":"))
+        except IOError as e:
+            print(f"Error writing metadata file: {e}", file=sys.stderr)
+
+    if result.get("status") != "COMPLETED":
+        print(
+            f"API returned status {result.get('status')} for batch request",
+            file=sys.stderr,
+        )
+
+
 def main():
     # Parse command line arguments
     args = parse_arguments()
@@ -437,24 +602,35 @@ def main():
         base_url = f"http://localhost:{port}"
 
     try:
-        # Process files in parallel
-        with ThreadPoolExecutor(max_workers=args.threads) as executor:
-            futures = [
-                executor.submit(
-                    process_file,
-                    input_file,
-                    config,
-                    args,
-                    base_url,
-                    tool_name,
-                    args.output_dir,
-                )
-                for input_file in input_files
-            ]
+        if config.get("input_files"):
+            # Batch mode: send all files in a single API call
+            process_files_batch(
+                input_files,
+                config,
+                args,
+                base_url,
+                tool_name,
+                args.output_dir,
+            )
+        else:
+            # Standard mode: process files individually in parallel
+            with ThreadPoolExecutor(max_workers=args.threads) as executor:
+                futures = [
+                    executor.submit(
+                        process_file,
+                        input_file,
+                        config,
+                        args,
+                        base_url,
+                        tool_name,
+                        args.output_dir,
+                    )
+                    for input_file in input_files
+                ]
 
-            # Wait for all tasks to complete
-            for future in futures:
-                future.result()
+                # Wait for all tasks to complete
+                for future in futures:
+                    future.result()
 
     finally:
         # Clean up - stop and remove the container if we created one

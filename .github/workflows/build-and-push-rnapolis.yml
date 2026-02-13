@@ -139,7 +139,7 @@ jobs:
             cat metadata.json
             exit 1
           fi
-          echo "$(jq -r .stdout metadata.json)" | tr -d '\r' | tr -d '\n' | grep -x "True"
+          jq -e '."base-triple.cif" == true' rnapolis-output.json
 
           curl -L -o 1ehz.pdb https://files.rcsb.org/download/1EHZ.pdb
 

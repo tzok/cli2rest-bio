@@ -456,12 +456,11 @@ test_rnapolis() {
   cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/rnapolis/config-coplanarity-checker.yaml" base-triple.cif
   assert_completed metadata.json
+  assert_files_exist rnapolis-output.json
 
-  local stdout_clean
-  stdout_clean="$(jq -r .stdout metadata.json | tr -d '\r' | tr -d '\n')"
-  if [[ "$stdout_clean" != "True" ]]; then
-    echo "Test failed: Coplanarity stdout is not True" >&2
-    cat metadata.json >&2
+  if ! jq -e '."base-triple.cif" == true' rnapolis-output.json >/dev/null; then
+    echo "Test failed: Coplanarity result for base-triple.cif is not true" >&2
+    cat rnapolis-output.json >&2
     exit 1
   fi
 
