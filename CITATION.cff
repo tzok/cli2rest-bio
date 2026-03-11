@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "cli2rest-bio: CLI to REST API wrapper for bioinformatics tools"
+version: 0.4.4
+date-released: "2026-03-11"
+license: MIT
+repository-code: "https://github.com/tzok/cli2rest-bio"
+authors:
+  - family-names: Zok
+    given-names: Tomasz
+    orcid: "https://orcid.org/0000-0003-4103-9238"
