@@ -1,1 +1,1 @@
-rnapolis==0.15.5
+rnapolis==0.15.6
