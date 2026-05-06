@@ -33,7 +33,7 @@ jobs:
       - name: Extract RNAPOLIS version
         id: get_version
         run: |
-          VERSION=$(grep 'rnapolis==' rnapolis/requirements.txt | cut -d'=' -f3)
+          VERSION=$(grep 'rnapolis==' rnapolis/requirements.in | cut -d'=' -f3)
           echo "Extracted RNAPOLIS version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 

@@ -2,23 +2,19 @@ ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
 
 FROM ${CLI2REST_BASE} AS builder
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      bison \
-      build-essential \
-      cmake \
-      flex \
- && rm -rf /var/lib/apt/lists/*
+COPY requirements.lock .
 
-COPY requirements.txt .
-
-RUN python -m pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN python -m pip wheel --no-cache-dir -w /wheels -r requirements.lock \
+ && cp requirements.lock /wheels/
 
 #######################################
 
 FROM ${CLI2REST_BASE}
 
-COPY --from=builder /install /usr/local
+COPY --from=builder /wheels /wheels
+
+RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels -r /wheels/requirements.lock \
+ && rm -rf /wheels
 
 COPY unifier-wrapper.py /usr/local/bin/unifier-wrapper.py
 COPY splitter-wrapper.py /usr/local/bin/splitter-wrapper.py
