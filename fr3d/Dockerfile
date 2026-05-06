@@ -10,15 +10,13 @@ RUN apt-get update \
 
 ARG FR3D_REF=latest
 
-RUN . /opt/venv/bin/activate \
- && pip install --upgrade pip \
- && pip install "git+https://github.com/BGSU-RNA/fr3d-python.git@${FR3D_REF}"
+RUN python -m pip install --no-cache-dir --prefix=/install "git+https://github.com/BGSU-RNA/fr3d-python.git@${FR3D_REF}"
 
 #######################################
 
 FROM ${CLI2REST_BASE}
 
-COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /install /usr/local
 
 COPY wrapper.py /usr/local/bin/wrapper.py
 RUN chmod +x /usr/local/bin/wrapper.py

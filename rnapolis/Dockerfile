@@ -12,20 +12,13 @@ RUN apt-get update \
 
 COPY requirements.txt .
 
-RUN . /opt/venv/bin/activate \
- && pip install --upgrade pip \
- && pip install -r requirements.txt
+RUN python -m pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 #######################################
 
 FROM ${CLI2REST_BASE}
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      highs \
- && rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /install /usr/local
 
 COPY unifier-wrapper.py /usr/local/bin/unifier-wrapper.py
 COPY splitter-wrapper.py /usr/local/bin/splitter-wrapper.py

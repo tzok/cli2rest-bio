@@ -1,3 +1,5 @@
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
+
 FROM debian:stable AS builder
 
 ARG MC_ANNOTATE_URL=https://major.iric.ca/MajorLabEn/MC-Tools_files/MC-Annotate.zip
@@ -16,8 +18,6 @@ RUN test -n "$MC_ANNOTATE_SHA256" \
  && unzip /tmp/MC-Annotate.zip
 
 #######################################
-
-ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
 
 FROM ${CLI2REST_BASE}
 

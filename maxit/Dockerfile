@@ -2,6 +2,8 @@ ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
 
 FROM ${CLI2REST_BASE} AS builder
 
+WORKDIR /
+
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       bison \
