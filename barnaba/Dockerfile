@@ -8,8 +8,8 @@ ADD https://github.com/srnas/barnaba.git#${BARNABA_TAG} /barnaba
 
 COPY requirements.txt .
 
-RUN python -m pip wheel --no-cache-dir --no-deps -w /wheels /barnaba \
- && python -m pip wheel --no-cache-dir -w /wheels -r requirements.txt \
+RUN python -m pip download --no-cache-dir -d /wheels -r requirements.txt \
+ && python -m pip wheel --no-cache-dir --no-deps -w /wheels /barnaba \
  && cp requirements.txt /wheels/
 
 #######################################

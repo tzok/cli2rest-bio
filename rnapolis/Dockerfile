@@ -4,7 +4,7 @@ FROM ${CLI2REST_BASE} AS builder
 
 COPY requirements.txt .
 
-RUN python -m pip wheel --no-cache-dir -w /wheels -r requirements.txt \
+RUN python -m pip download --no-cache-dir -d /wheels -r requirements.txt \
  && cp requirements.txt /wheels/
 
 #######################################

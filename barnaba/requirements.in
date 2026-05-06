@@ -3,3 +3,5 @@ scipy
 mdtraj
 future
 scikit-learn
+setuptools
+wheel

@@ -1,3 +1,5 @@
 numpy
 scipy
 mmcif-pdbx
+setuptools
+wheel

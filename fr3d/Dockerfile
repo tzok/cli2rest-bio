@@ -8,8 +8,8 @@ ADD https://github.com/BGSU-RNA/fr3d-python.git#${FR3D_REF} /fr3d-src
 
 COPY requirements.txt .
 
-RUN python -m pip wheel --no-cache-dir --no-deps -w /wheels /fr3d-src \
- && python -m pip wheel --no-cache-dir -w /wheels -r requirements.txt \
+RUN python -m pip download --no-cache-dir -d /wheels -r requirements.txt \
+ && python -m pip wheel --no-cache-dir --no-deps -w /wheels /fr3d-src \
  && cp requirements.txt /wheels/
 
 #######################################
