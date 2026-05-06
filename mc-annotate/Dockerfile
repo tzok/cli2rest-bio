@@ -1,16 +1,25 @@
 FROM debian:stable AS builder
 
+ARG MC_ANNOTATE_URL=https://major.iric.ca/MajorLabEn/MC-Tools_files/MC-Annotate.zip
+ARG MC_ANNOTATE_SHA256
+
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
       unzip \
  && rm -rf /var/lib/apt/lists/*
 
-ADD https://major.iric.ca/MajorLabEn/MC-Tools_files/MC-Annotate.zip /
-RUN unzip /MC-Annotate.zip
+RUN test -n "$MC_ANNOTATE_SHA256" \
+ && curl -fsSL "$MC_ANNOTATE_URL" -o /tmp/MC-Annotate.zip \
+ && echo "$MC_ANNOTATE_SHA256  /tmp/MC-Annotate.zip" | sha256sum -c - \
+ && unzip /tmp/MC-Annotate.zip
 
 #######################################
 
-FROM ghcr.io/tzok/cli2rest:latest
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
+
+FROM ${CLI2REST_BASE}
 
 COPY --from=builder /MC-Annotate /usr/local/bin/MC-Annotate
 

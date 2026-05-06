@@ -1,4 +1,6 @@
-FROM ghcr.io/tzok/cli2rest:latest AS builder
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
+
+FROM ${CLI2REST_BASE} AS builder
 
 ARG BARNABA_TAG=master
 
@@ -11,6 +13,6 @@ RUN cd /barnaba \
 
 #######################################
 
-FROM ghcr.io/tzok/cli2rest:latest
+FROM ${CLI2REST_BASE}
 
 COPY --from=builder /opt/venv /opt/venv

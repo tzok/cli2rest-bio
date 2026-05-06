@@ -1,4 +1,6 @@
-FROM ghcr.io/tzok/cli2rest:latest AS builder
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
+
+FROM ${CLI2REST_BASE} AS builder
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -16,7 +18,7 @@ RUN . /opt/venv/bin/activate \
 
 #######################################
 
-FROM ghcr.io/tzok/cli2rest:latest
+FROM ${CLI2REST_BASE}
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \

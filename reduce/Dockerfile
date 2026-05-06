@@ -1,4 +1,6 @@
-FROM debian:stable AS builder
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
+
+FROM ${CLI2REST_BASE} AS builder
 
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
@@ -25,7 +27,7 @@ RUN mkdir /reduce-src/build \
 
 #######################################
 
-FROM ghcr.io/tzok/cli2rest:latest
+FROM ${CLI2REST_BASE}
 
 COPY --from=builder /opt/reduce/bin /usr/local/bin
 

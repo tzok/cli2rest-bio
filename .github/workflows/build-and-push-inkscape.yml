@@ -24,30 +24,52 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get Inkscape version from base image apt
+      - name: Install registry tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends skopeo jq
+
+      - name: Resolve cli2rest base image
+        id: get_base
+        run: |
+          set -euo pipefail
+
+          BASE_IMAGE="ghcr.io/tzok/cli2rest:latest"
+          BASE_JSON=$(skopeo inspect --override-os linux --override-arch amd64 "docker://$BASE_IMAGE")
+          BASE_DIGEST=$(echo "$BASE_JSON" | jq -r '.Digest')
+          BASE_REF="${BASE_IMAGE%@*}@${BASE_DIGEST}"
+          BASE_DIGEST_SHORT="${BASE_DIGEST#sha256:}"
+
+          echo "ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+          echo "digest_short=${BASE_DIGEST_SHORT:0:12}" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Resolve Inkscape version from cli2rest base image
         id: get_version
         run: |
-          INKSCAPE_VERSION=$(docker run --rm python:3-slim /bin/bash -c "apt-get update > /dev/null && apt-cache policy inkscape | grep Candidate | awk '{print \$2}'")
+          set -euo pipefail
+
+          INKSCAPE_VERSION=$(docker run --rm "${{ steps.get_base.outputs.ref }}" /bin/bash -c "apt-get update > /dev/null && apt-cache policy inkscape | awk '/Candidate:/ {print \$2}'")
           if [ -z "$INKSCAPE_VERSION" ]; then
-            echo "Error: Could not fetch Inkscape version from apt."
+            echo "Error: Could not fetch Inkscape version from cli2rest base image apt."
             exit 1
           fi
+
           echo "Inkscape version: $INKSCAPE_VERSION"
           echo "version=$INKSCAPE_VERSION" >> "$GITHUB_OUTPUT"
         shell: bash
 
-      - name: Install registry tooling
-        if: github.event_name != 'pull_request'
+      - name: Compute upstream version
+        id: get_upstream
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends skopeo jq
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_inkscape-${{ steps.get_version.outputs.version }}" >> "$GITHUB_OUTPUT"
+        shell: bash
 
       - name: Decide whether to rebuild
         id: decide
@@ -56,7 +78,7 @@ jobs:
           set -euo pipefail
 
           IMAGE="ghcr.io/tzok/cli2rest-inkscape"
-          UPSTREAM="${{ steps.get_version.outputs.version }}"
+          UPSTREAM="${{ steps.get_upstream.outputs.upstream }}"
           VERSION_REF="$IMAGE:$UPSTREAM"
           LATEST_REF="$IMAGE:latest"
 
@@ -109,10 +131,13 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ./inkscape
+          build-args: |
+            CLI2REST_BASE=${{ steps.get_base.outputs.ref }}
+          pull: true
           push: ${{ github.event_name != 'pull_request' }}
           load: true
           labels: |
-            org.cli2rest.upstream=${{ steps.get_version.outputs.version }}
+            org.cli2rest.upstream=${{ steps.get_upstream.outputs.upstream }}
             org.opencontainers.image.revision=${{ github.sha }}
           tags: |
             ${{ github.event_name == 'pull_request' && 'ghcr.io/tzok/cli2rest-inkscape:test' || '' }}

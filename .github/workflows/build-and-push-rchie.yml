@@ -24,24 +24,78 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get latest R4RNA version from Bioconductor
-        id: get_r4rna_version
+      - name: Install registry tooling
         run: |
-          R4RNA_INFO=$(curl -s https://bioconductor.org/packages/release/bioc/src/contrib/PACKAGES | grep -A 1 "^Package: R4RNA$")
-          R4RNA_VERSION=$(echo "$R4RNA_INFO" | grep "^Version:" | awk '{print $2}')
-          if [ -z "$R4RNA_VERSION" ]; then
-            echo "Error: Could not fetch R4RNA version."
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends skopeo jq
+
+      - name: Resolve cli2rest base image
+        id: get_base
+        run: |
+          set -euo pipefail
+
+          BASE_IMAGE="ghcr.io/tzok/cli2rest:latest"
+          BASE_JSON=$(skopeo inspect --override-os linux --override-arch amd64 "docker://$BASE_IMAGE")
+          BASE_DIGEST=$(echo "$BASE_JSON" | jq -r '.Digest')
+          BASE_REF="${BASE_IMAGE%@*}@${BASE_DIGEST}"
+          BASE_DIGEST_SHORT="${BASE_DIGEST#sha256:}"
+
+          echo "ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+          echo "digest_short=${BASE_DIGEST_SHORT:0:12}" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Resolve R/Bioc/R4RNA versions
+        id: get_r4rna
+        run: |
+          set -euo pipefail
+
+          VERSIONS=$(docker run --rm --user root "${{ steps.get_base.outputs.ref }}" bash -c '
+            set -e
+            apt-get update -qq > /dev/null
+            apt-get install -y -qq --no-install-recommends \
+              build-essential \
+              ca-certificates \
+              curl \
+              gzip \
+              tar \
+              r-base \
+              r-base-dev \
+              r-bioc-biostrings \
+              r-cran-biocmanager \
+              r-cran-ggplot2 \
+              r-cran-plotly \
+              r-cran-rpostgresql \
+              > /dev/null
+            exec Rscript -e "
+              rver <- R.Version()\$version.string;
+              biocver <- as.character(BiocManager::version());
+              r4rna <- available.packages(repos = BiocManager::repositories())[\"R4RNA\", \"Version\"];
+              cat(sprintf(\"R_VERSION=%s\n\", rver));
+              cat(sprintf(\"BIOC_VERSION=%s\n\", biocver));
+              cat(sprintf(\"R4RNA_VERSION=%s\n\", r4rna));
+            "
+          ')
+
+          echo "$VERSIONS"
+
+          R_VERSION=$(echo "$VERSIONS" | grep "^R_VERSION=" | cut -d= -f2)
+          BIOC_VERSION=$(echo "$VERSIONS" | grep "^BIOC_VERSION=" | cut -d= -f2)
+          R4RNA_VERSION=$(echo "$VERSIONS" | grep "^R4RNA_VERSION=" | cut -d= -f2)
+
+          if [ -z "$BIOC_VERSION" ] || [ -z "$R4RNA_VERSION" ]; then
+            echo "Error: Could not determine Bioconductor/R4RNA versions from base image."
             exit 1
           fi
-          echo "Latest R4RNA version: $R4RNA_VERSION"
-          echo "version=$R4RNA_VERSION" >> "$GITHUB_OUTPUT"
+
+          echo "r_version=$R_VERSION" >> "$GITHUB_OUTPUT"
+          echo "bioc_version=$BIOC_VERSION" >> "$GITHUB_OUTPUT"
+          echo "r4rna_version=$R4RNA_VERSION" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Get latest svgcleaner tag
@@ -61,13 +115,7 @@ jobs:
       - name: Compute upstream version
         id: get_version
         run: |
-          echo "upstream=${{ steps.get_r4rna_version.outputs.version }}_${{ steps.get_svgcleaner_version.outputs.version }}" >> "$GITHUB_OUTPUT"
-
-      - name: Install registry tooling
-        if: github.event_name != 'pull_request'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends skopeo jq
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_bioc-${{ steps.get_r4rna.outputs.bioc_version }}_r4rna-${{ steps.get_r4rna.outputs.r4rna_version }}_svgcleaner-${{ steps.get_svgcleaner_version.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Decide whether to rebuild
         id: decide
@@ -130,12 +178,15 @@ jobs:
         with:
           context: ./rchie
           build-args: |
-            R4RNA_VERSION=${{ steps.get_r4rna_version.outputs.version }}
+            CLI2REST_BASE=${{ steps.get_base.outputs.ref }}
+            BIOC_VERSION=${{ steps.get_r4rna.outputs.bioc_version }}
+            R4RNA_VERSION=${{ steps.get_r4rna.outputs.r4rna_version }}
             SVGCLEANER_VERSION=${{ steps.get_svgcleaner_version.outputs.version }}
+          pull: true
           push: ${{ github.event_name != 'pull_request' }}
           load: true
           labels: |
-            org.cli2rest.upstream=${{ steps.decide.outputs.upstream }}
+            org.cli2rest.upstream=${{ steps.get_version.outputs.upstream }}
             org.opencontainers.image.revision=${{ github.sha }}
           tags: |
             ${{ github.event_name == 'pull_request' && 'ghcr.io/tzok/cli2rest-rchie:test' || '' }}

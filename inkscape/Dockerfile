@@ -1,5 +1,7 @@
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
+
 # Start from the specified base image
-FROM ghcr.io/tzok/cli2rest:latest
+FROM ${CLI2REST_BASE}
 
 # Install inkscape
 RUN apt-get update -y \

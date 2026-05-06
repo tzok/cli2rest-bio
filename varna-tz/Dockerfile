@@ -1,3 +1,5 @@
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
+
 FROM maven:3.9-eclipse-temurin-17 AS builder
 
 ARG VARNA_TZ_VERSION=master
@@ -14,7 +16,7 @@ RUN tar xfz /svgcleaner_linux_x86_64_${SVGCLEANER_VERSION}.tar.gz -C /usr/local/
 
 #######################################
 
-FROM ghcr.io/tzok/cli2rest:latest
+FROM ${CLI2REST_BASE}
 
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
