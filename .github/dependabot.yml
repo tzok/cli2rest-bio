@@ -62,6 +62,44 @@ updates:
           - "*"
         # Auto-merging handled by dependabot-auto-merge.yml workflow
 
+  # Enable version updates for Python packages in barnaba
+  - package-ecosystem: "pip"
+    directory: "/barnaba/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    assignees:
+      - "tzok"
+    labels:
+      - "dependencies"
+      - "python"
+      - "barnaba"
+    groups:
+      barnaba-python-packages:
+        patterns:
+          - "*"
+        # Auto-merging handled by dependabot-auto-merge.yml workflow
+
+  # Enable version updates for Python packages in fr3d
+  - package-ecosystem: "pip"
+    directory: "/fr3d/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    assignees:
+      - "tzok"
+    labels:
+      - "dependencies"
+      - "python"
+      - "fr3d"
+    groups:
+      fr3d-python-packages:
+        patterns:
+          - "*"
+        # Auto-merging handled by dependabot-auto-merge.yml workflow
+
   # Enable version updates for Docker images in each tool directory
   - package-ecosystem: "docker"
     directory: "/fr3d/"

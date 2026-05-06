@@ -1,4 +1,6 @@
-FROM debian:stable AS builder
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
+
+FROM ${CLI2REST_BASE} AS builder
 
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
@@ -19,7 +21,7 @@ RUN cd /RNAView \
 
 #######################################
 
-FROM ghcr.io/tzok/cli2rest:latest
+FROM ${CLI2REST_BASE}
 
 COPY --from=builder /RNAView /opt/RNAView
 

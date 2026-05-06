@@ -1,5 +1,7 @@
-# Builder stage based on Debian stable
-FROM debian:stable AS builder
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
+
+# Builder stage based on the shared CLI2REST runtime image
+FROM ${CLI2REST_BASE} AS builder
 
 # Install necessary build dependencies
 RUN apt-get update -y \
@@ -15,8 +17,11 @@ ENV CC="gcc" CXX="g++" FC="gfortran" \
     FCFLAGS="-O3 -pipe -fomit-frame-pointer -fno-plt -march=x86-64 -mtune=generic" \
     LDFLAGS="-Wl,-O1 -Wl,--as-needed -s"
 
+ARG BPNET_REF=master
+ARG METBP_REF=master
+
 # Clone the bpnet repository into /bpnet-src
-ADD https://github.com/computational-biology/bpnet.git /bpnet-src
+ADD https://github.com/computational-biology/bpnet.git#${BPNET_REF} /bpnet-src
 
 # Copy and apply the patch
 COPY 001-change-chain-separatator.patch /bpnet-src/
@@ -27,7 +32,7 @@ RUN cd /bpnet-src \
  && make
 
 # Clone the metbp repository into /metbp-src
-ADD https://github.com/computational-biology/metbp.git /metbp-src
+ADD https://github.com/computational-biology/metbp.git#${METBP_REF} /metbp-src
 
 # Build metbp
 RUN cd /metbp-src \
@@ -36,7 +41,7 @@ RUN cd /metbp-src \
 
 #######################################
 
-FROM ghcr.io/tzok/cli2rest:latest
+FROM ${CLI2REST_BASE}
 
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \

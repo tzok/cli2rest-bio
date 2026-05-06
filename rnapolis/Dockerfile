@@ -1,29 +1,20 @@
-FROM ghcr.io/tzok/cli2rest:latest AS builder
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      bison \
-      build-essential \
-      cmake \
-      flex \
- && rm -rf /var/lib/apt/lists/*
+FROM ${CLI2REST_BASE} AS builder
 
 COPY requirements.txt .
 
-RUN . /opt/venv/bin/activate \
- && pip install --upgrade pip \
- && pip install -r requirements.txt
+RUN python -m pip download --no-cache-dir -d /wheels -r requirements.txt \
+ && cp requirements.txt /wheels/
 
 #######################################
 
-FROM ghcr.io/tzok/cli2rest:latest
+FROM ${CLI2REST_BASE}
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      highs \
- && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /wheels /wheels
 
-COPY --from=builder /opt/venv /opt/venv
+RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels -r /wheels/requirements.txt \
+ && rm -rf /wheels
 
 COPY unifier-wrapper.py /usr/local/bin/unifier-wrapper.py
 COPY splitter-wrapper.py /usr/local/bin/splitter-wrapper.py

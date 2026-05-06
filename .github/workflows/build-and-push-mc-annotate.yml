@@ -24,28 +24,53 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get MC-Annotate version
+      - name: Resolve MC-Annotate artifact metadata
         id: get_version
         run: |
+          URL="https://major.iric.ca/MajorLabEn/MC-Tools_files/MC-Annotate.zip"
           VERSION=$(curl -s https://major.iric.ca/MajorLabEn/MC-Tools.html | grep -oP 'MC-Annotate\.zip.*?version\K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
           if [ -z "$VERSION" ]; then
             VERSION="1.6.2"
           fi
+          SHA256=$(curl -fsSL "$URL" | sha256sum | cut -d' ' -f1)
+
           echo "MC-Annotate version: $VERSION"
+          echo "MC-Annotate sha256: $SHA256"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
 
       - name: Install registry tooling
-        if: github.event_name != 'pull_request'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends skopeo jq
+
+      - name: Resolve cli2rest base image
+        id: get_base
+        run: |
+          set -euo pipefail
+
+          BASE_IMAGE="ghcr.io/tzok/cli2rest:latest"
+          BASE_JSON=$(skopeo inspect --override-os linux --override-arch amd64 "docker://$BASE_IMAGE")
+          BASE_DIGEST=$(echo "$BASE_JSON" | jq -r '.Digest')
+          BASE_REF="${BASE_IMAGE%@*}@${BASE_DIGEST}"
+          BASE_DIGEST_SHORT="${BASE_DIGEST#sha256:}"
+
+          echo "ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+          echo "digest_short=${BASE_DIGEST_SHORT:0:12}" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Compute upstream version
+        id: get_upstream
+        run: |
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_mc-annotate-${{ steps.get_version.outputs.version }}_sha-${{ steps.get_version.outputs.sha256 }}" >> "$GITHUB_OUTPUT"
+        shell: bash
 
       - name: Decide whether to rebuild
         id: decide
@@ -54,7 +79,7 @@ jobs:
           set -euo pipefail
 
           IMAGE="ghcr.io/tzok/cli2rest-mc-annotate"
-          UPSTREAM="${{ steps.get_version.outputs.version }}"
+          UPSTREAM="${{ steps.get_upstream.outputs.upstream }}"
           VERSION_REF="$IMAGE:$UPSTREAM"
           LATEST_REF="$IMAGE:latest"
 
@@ -108,11 +133,14 @@ jobs:
         with:
           context: ./mc-annotate
           build-args: |
-            MC_ANNOTATE_VERSION=${{ steps.get_version.outputs.version }}
+            CLI2REST_BASE=${{ steps.get_base.outputs.ref }}
+            MC_ANNOTATE_URL=${{ steps.get_version.outputs.url }}
+            MC_ANNOTATE_SHA256=${{ steps.get_version.outputs.sha256 }}
+          pull: true
           push: ${{ github.event_name != 'pull_request' }}
           load: true
           labels: |
-            org.cli2rest.upstream=${{ steps.get_version.outputs.version }}
+            org.cli2rest.upstream=${{ steps.get_upstream.outputs.upstream }}
             org.opencontainers.image.revision=${{ github.sha }}
           tags: |
             ${{ github.event_name == 'pull_request' && 'ghcr.io/tzok/cli2rest-mc-annotate:test' || '' }}

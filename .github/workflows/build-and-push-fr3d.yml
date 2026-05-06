@@ -28,7 +28,6 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -49,10 +48,30 @@ jobs:
         shell: bash
 
       - name: Install registry tooling
-        if: github.event_name != 'pull_request'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends skopeo jq
+
+      - name: Resolve cli2rest base image
+        id: get_base
+        run: |
+          set -euo pipefail
+
+          BASE_IMAGE="ghcr.io/tzok/cli2rest:latest"
+          BASE_JSON=$(skopeo inspect --override-os linux --override-arch amd64 "docker://$BASE_IMAGE")
+          BASE_DIGEST=$(echo "$BASE_JSON" | jq -r '.Digest')
+          BASE_REF="${BASE_IMAGE%@*}@${BASE_DIGEST}"
+          BASE_DIGEST_SHORT="${BASE_DIGEST#sha256:}"
+
+          echo "ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+          echo "digest_short=${BASE_DIGEST_SHORT:0:12}" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Compute upstream version
+        id: get_upstream
+        run: |
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_${{ matrix.branch }}-${{ steps.get_version.outputs.short_commit }}" >> "$GITHUB_OUTPUT"
+        shell: bash
 
       - name: Decide whether to rebuild
         id: decide
@@ -61,7 +80,7 @@ jobs:
           set -euo pipefail
 
           IMAGE="ghcr.io/tzok/cli2rest-fr3d"
-          UPSTREAM="${{ steps.get_version.outputs.upstream }}"
+          UPSTREAM="${{ steps.get_upstream.outputs.upstream }}"
           VERSION_REF="$IMAGE:$UPSTREAM"
           FLOATING_REF="$IMAGE:${{ matrix.branch }}"
 
@@ -115,11 +134,13 @@ jobs:
         with:
           context: ./fr3d
           build-args: |
-            FR3D_BRANCH=${{ matrix.branch }}
+            CLI2REST_BASE=${{ steps.get_base.outputs.ref }}
+            FR3D_REF=${{ steps.get_version.outputs.commit_hash }}
+          pull: true
           push: ${{ github.event_name != 'pull_request' }}
           load: true
           labels: |
-            org.cli2rest.upstream=${{ steps.get_version.outputs.upstream }}
+            org.cli2rest.upstream=${{ steps.get_upstream.outputs.upstream }}
             org.opencontainers.image.revision=${{ github.sha }}
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-fr3d:test-{0}', matrix.branch) || '' }}

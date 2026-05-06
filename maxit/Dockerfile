@@ -1,4 +1,8 @@
-FROM debian:stable AS builder
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
+
+FROM ${CLI2REST_BASE} AS builder
+
+WORKDIR /
 
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
@@ -23,7 +27,7 @@ RUN tar xf maxit-v${MAXIT_VERSION}-prod-src.tar.gz \
 
 #######################################
 
-FROM ghcr.io/tzok/cli2rest:latest
+FROM ${CLI2REST_BASE}
 
 ARG MAXIT_VERSION=11.300
 

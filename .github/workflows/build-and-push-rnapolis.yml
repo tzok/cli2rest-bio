@@ -24,7 +24,6 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -34,15 +33,35 @@ jobs:
       - name: Extract RNAPOLIS version
         id: get_version
         run: |
-          VERSION=$(grep 'rnapolis==' rnapolis/requirements.txt | cut -d'=' -f3)
+          VERSION=$(grep 'rnapolis==' rnapolis/requirements.in | cut -d'=' -f3)
           echo "Extracted RNAPOLIS version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Install registry tooling
-        if: github.event_name != 'pull_request'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends skopeo jq
+
+      - name: Resolve cli2rest base image
+        id: get_base
+        run: |
+          set -euo pipefail
+
+          BASE_IMAGE="ghcr.io/tzok/cli2rest:latest"
+          BASE_JSON=$(skopeo inspect --override-os linux --override-arch amd64 "docker://$BASE_IMAGE")
+          BASE_DIGEST=$(echo "$BASE_JSON" | jq -r '.Digest')
+          BASE_REF="${BASE_IMAGE%@*}@${BASE_DIGEST}"
+          BASE_DIGEST_SHORT="${BASE_DIGEST#sha256:}"
+
+          echo "ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+          echo "digest_short=${BASE_DIGEST_SHORT:0:12}" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Compute upstream version
+        id: get_upstream
+        run: |
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_rnapolis-${{ steps.get_version.outputs.version }}" >> "$GITHUB_OUTPUT"
+        shell: bash
 
       - name: Decide whether to rebuild
         id: decide
@@ -51,7 +70,7 @@ jobs:
           set -euo pipefail
 
           IMAGE="ghcr.io/tzok/cli2rest-rnapolis"
-          UPSTREAM="${{ steps.get_version.outputs.version }}"
+          UPSTREAM="${{ steps.get_upstream.outputs.upstream }}"
           VERSION_REF="$IMAGE:$UPSTREAM"
           LATEST_REF="$IMAGE:latest"
 
@@ -104,10 +123,13 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ./rnapolis
+          build-args: |
+            CLI2REST_BASE=${{ steps.get_base.outputs.ref }}
+          pull: true
           push: ${{ github.event_name != 'pull_request' }}
           load: true
           labels: |
-            org.cli2rest.upstream=${{ steps.get_version.outputs.version }}
+            org.cli2rest.upstream=${{ steps.get_upstream.outputs.upstream }}
             org.opencontainers.image.revision=${{ github.sha }}
           tags: |
             ${{ github.event_name == 'pull_request' && 'ghcr.io/tzok/cli2rest-rnapolis:test' || '' }}

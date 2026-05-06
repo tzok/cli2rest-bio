@@ -397,9 +397,7 @@ def process_files_batch(
     # Use tool name only as prefix for batch mode
     output_prefix = f"{tool_name}-"
 
-    print(
-        f"Processing {len(input_files)} file(s) in batch mode", file=sys.stderr
-    )
+    print(f"Processing {len(input_files)} file(s) in batch mode", file=sys.stderr)
 
     full_arguments = config.get("arguments", [])
     if not full_arguments:
@@ -430,9 +428,7 @@ def process_files_batch(
                 f.close()
             return
         except Exception as e:
-            print(
-                f"Error opening input file {input_file}: {e}", file=sys.stderr
-            )
+            print(f"Error opening input file {input_file}: {e}", file=sys.stderr)
             for f in opened_files:
                 f.close()
             return
@@ -518,9 +514,7 @@ def process_files_batch(
             try:
                 with open(prefixed_output_path, "wb") as f:
                     f.write(content_bytes)
-                print(
-                    f"Saved output to: {prefixed_output_path}", file=sys.stderr
-                )
+                print(f"Saved output to: {prefixed_output_path}", file=sys.stderr)
             except IOError as e:
                 print(
                     f"Error writing output file {prefixed_output_path}: {e}",

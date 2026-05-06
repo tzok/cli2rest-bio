@@ -1,22 +1,26 @@
-FROM ghcr.io/tzok/cli2rest:latest AS builder
+ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      build-essential \
-      git \
- && rm -rf /var/lib/apt/lists/*
+FROM ${CLI2REST_BASE} AS builder
 
-ARG FR3D_BRANCH=latest
+ARG FR3D_REF=latest
 
-RUN . /opt/venv/bin/activate \
- && pip install --upgrade pip \
- && pip install "git+https://github.com/BGSU-RNA/fr3d-python.git@${FR3D_BRANCH}"
+ADD https://github.com/BGSU-RNA/fr3d-python.git#${FR3D_REF} /fr3d-src
+
+COPY requirements.txt .
+
+RUN python -m pip download --no-cache-dir -d /wheels -r requirements.txt \
+ && python -m pip wheel --no-cache-dir --no-deps -w /wheels /fr3d-src \
+ && cp requirements.txt /wheels/
 
 #######################################
 
-FROM ghcr.io/tzok/cli2rest:latest
+FROM ${CLI2REST_BASE}
 
-COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /wheels /wheels
+
+RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels -r /wheels/requirements.txt \
+ && python -m pip install --no-cache-dir --no-index --find-links=/wheels --no-deps fr3d \
+ && rm -rf /wheels
 
 COPY wrapper.py /usr/local/bin/wrapper.py
 RUN chmod +x /usr/local/bin/wrapper.py
