@@ -3,7 +3,7 @@ name = "cli2rest-rnapolis-env"
 version = "0"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "rnapolis==0.16.3",
+    "rnapolis==0.16.6",
 ]
 
 [tool.uv]
