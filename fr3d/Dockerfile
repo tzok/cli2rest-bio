@@ -1,11 +1,11 @@
 ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
-ARG FR3D_CHANNEL=latest
-
 FROM ${CLI2REST_BASE} AS builder
 
+ARG FR3D_CHANNEL=latest
+
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git \
- && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/fr3d
 
