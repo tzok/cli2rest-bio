@@ -192,6 +192,13 @@ docker pull ghcr.io/tzok/cli2rest-barnaba:latest
 - Docker
 - Python packages: docker, requests, pyyaml (automatically installed when using pip)
 
+## Maintainer Notes
+
+- `rnapolis`, `barnaba`, and `fr3d` use tool-local `uv` lockfiles for image builds.
+- `rnapolis` is pinned to a PyPI release and updated through Dependabot.
+- `barnaba` and both `fr3d` channels are pinned manually by Git SHA.
+- See `docs/python-tool-pinning.md` for the pinning and lock refresh workflow.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.

@@ -33,7 +33,19 @@ jobs:
       - name: Extract RNAPOLIS version
         id: get_version
         run: |
-          VERSION=$(grep 'rnapolis==' rnapolis/requirements.in | cut -d'=' -f3)
+          VERSION=$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          data = tomllib.loads(Path("rnapolis/pyproject.toml").read_text())
+          for dependency in data["project"]["dependencies"]:
+              if dependency.startswith("rnapolis=="):
+                  print(dependency.split("==", 1)[1])
+                  break
+          else:
+              raise SystemExit("rnapolis dependency pin not found")
+          PY
+          )
           echo "Extracted RNAPOLIS version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -60,7 +72,8 @@ jobs:
       - name: Compute upstream version
         id: get_upstream
         run: |
-          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_rnapolis-${{ steps.get_version.outputs.version }}" >> "$GITHUB_OUTPUT"
+          LOCK_HASH=$(sha256sum rnapolis/uv.lock | cut -c1-12)
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_rnapolis-${{ steps.get_version.outputs.version }}_${LOCK_HASH}" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Decide whether to rebuild

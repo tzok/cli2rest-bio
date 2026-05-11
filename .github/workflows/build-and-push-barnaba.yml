@@ -30,15 +30,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get latest barnaba commit hash
+      - name: Read pinned barnaba commit hash
         id: get_version
         run: |
-          LATEST_COMMIT=$(git ls-remote https://github.com/srnas/barnaba.git HEAD | cut -f1)
-          SHORT_COMMIT=${LATEST_COMMIT:0:7}
+          PINNED_COMMIT=$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          data = tomllib.loads(Path("barnaba/pyproject.toml").read_text())
+          print(data["tool"]["uv"]["sources"]["barnaba"]["rev"])
+          PY
+          )
+          SHORT_COMMIT=${PINNED_COMMIT:0:7}
           BRANCH_NAME="master"
 
-          echo "Latest Barnaba commit: $LATEST_COMMIT"
-          echo "commit_hash=$LATEST_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "Pinned Barnaba commit: $PINNED_COMMIT"
+          echo "commit_hash=$PINNED_COMMIT" >> "$GITHUB_OUTPUT"
           echo "short_commit=$SHORT_COMMIT" >> "$GITHUB_OUTPUT"
           echo "upstream=${BRANCH_NAME}-${SHORT_COMMIT}" >> "$GITHUB_OUTPUT"
         shell: bash
@@ -66,7 +73,8 @@ jobs:
       - name: Compute upstream version
         id: get_upstream
         run: |
-          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_master-${{ steps.get_version.outputs.short_commit }}" >> "$GITHUB_OUTPUT"
+          LOCK_HASH=$(sha256sum barnaba/uv.lock | cut -c1-12)
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_master-${{ steps.get_version.outputs.short_commit }}_${LOCK_HASH}" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Decide whether to rebuild
@@ -131,7 +139,6 @@ jobs:
           context: ./barnaba
           build-args: |
             CLI2REST_BASE=${{ steps.get_base.outputs.ref }}
-            BARNABA_TAG=${{ steps.get_version.outputs.commit_hash }}
           pull: true
           push: ${{ github.event_name != 'pull_request' }}
           load: true

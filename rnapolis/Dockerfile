@@ -1,20 +1,16 @@
 ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
 
-FROM ${CLI2REST_BASE} AS builder
-
-COPY requirements.txt .
-
-RUN python -m pip download --no-cache-dir -d /wheels -r requirements.txt \
- && cp requirements.txt /wheels/
-
-#######################################
-
 FROM ${CLI2REST_BASE}
 
-COPY --from=builder /wheels /wheels
+WORKDIR /opt/rnapolis
 
-RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels -r /wheels/requirements.txt \
- && rm -rf /wheels
+COPY pyproject.toml uv.lock ./
+
+RUN UV_PROJECT_ENVIRONMENT=/opt/rnapolis/.venv uv sync --locked --no-dev
+
+ENV PATH="/opt/rnapolis/.venv/bin:/app/.venv/bin:$PATH"
+
+WORKDIR /app
 
 COPY unifier-wrapper.py /usr/local/bin/unifier-wrapper.py
 COPY splitter-wrapper.py /usr/local/bin/splitter-wrapper.py

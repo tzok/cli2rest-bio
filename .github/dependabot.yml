@@ -43,8 +43,8 @@ updates:
           - "*"
         # Auto-merging handled by dependabot-auto-merge.yml workflow
 
-  # Enable version updates for Python packages in rnapolis
-  - package-ecosystem: "pip"
+  # Enable version updates for uv-managed Python packages in rnapolis
+  - package-ecosystem: "uv"
     directory: "/rnapolis/"
     schedule:
       interval: "weekly"
@@ -62,8 +62,8 @@ updates:
           - "*"
         # Auto-merging handled by dependabot-auto-merge.yml workflow
 
-  # Enable version updates for Python packages in barnaba
-  - package-ecosystem: "pip"
+  # Enable version updates for uv-managed Python packages in barnaba
+  - package-ecosystem: "uv"
     directory: "/barnaba/"
     schedule:
       interval: "weekly"
@@ -81,9 +81,9 @@ updates:
           - "*"
         # Auto-merging handled by dependabot-auto-merge.yml workflow
 
-  # Enable version updates for Python packages in fr3d
-  - package-ecosystem: "pip"
-    directory: "/fr3d/"
+  # Enable version updates for uv-managed Python packages in fr3d latest
+  - package-ecosystem: "uv"
+    directory: "/fr3d/uv/latest/"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -95,7 +95,26 @@ updates:
       - "python"
       - "fr3d"
     groups:
-      fr3d-python-packages:
+      fr3d-latest-python-packages:
+        patterns:
+          - "*"
+        # Auto-merging handled by dependabot-auto-merge.yml workflow
+
+  # Enable version updates for uv-managed Python packages in fr3d master
+  - package-ecosystem: "uv"
+    directory: "/fr3d/uv/master/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    assignees:
+      - "tzok"
+    labels:
+      - "dependencies"
+      - "python"
+      - "fr3d"
+    groups:
+      fr3d-master-python-packages:
         patterns:
           - "*"
         # Auto-merging handled by dependabot-auto-merge.yml workflow

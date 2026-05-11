@@ -1,0 +1,13 @@
+[project]
+name = "cli2rest-barnaba-env"
+version = "0"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "barnaba",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+barnaba = { git = "https://github.com/srnas/barnaba", rev = "48ac4a9496c68fc48698f65c5e0d9563761681ec" }

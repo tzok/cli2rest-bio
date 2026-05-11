@@ -1,0 +1,13 @@
+[project]
+name = "cli2rest-fr3d-latest-env"
+version = "0"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fr3d",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+fr3d = { git = "https://github.com/BGSU-RNA/fr3d-python", rev = "1627c95ab81b2d5ced075ce553cb306b6e19f5d5" }

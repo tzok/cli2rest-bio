@@ -34,18 +34,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get latest FR3D commit hash
+      - name: Read pinned FR3D commit hash
         id: get_version
         run: |
-          LATEST_COMMIT=$(git ls-remote https://github.com/BGSU-RNA/fr3d-python.git ${{ matrix.branch }} | cut -f1)
-          SHORT_COMMIT=${LATEST_COMMIT:0:7}
+          PINNED_COMMIT=$(python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          branch = os.environ["FR3D_BRANCH"]
+          data = tomllib.loads(Path(f"fr3d/uv/{branch}/pyproject.toml").read_text())
+          print(data["tool"]["uv"]["sources"]["fr3d"]["rev"])
+          PY
+          )
+          SHORT_COMMIT=${PINNED_COMMIT:0:7}
           UPSTREAM="${{ matrix.branch }}-${SHORT_COMMIT}"
 
-          echo "Latest FR3D commit for ${{ matrix.branch }}: $LATEST_COMMIT"
-          echo "commit_hash=$LATEST_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "Pinned FR3D commit for ${{ matrix.branch }}: $PINNED_COMMIT"
+          echo "commit_hash=$PINNED_COMMIT" >> "$GITHUB_OUTPUT"
           echo "short_commit=$SHORT_COMMIT" >> "$GITHUB_OUTPUT"
           echo "upstream=$UPSTREAM" >> "$GITHUB_OUTPUT"
         shell: bash
+        env:
+          FR3D_BRANCH: ${{ matrix.branch }}
 
       - name: Install registry tooling
         run: |
@@ -70,7 +81,8 @@ jobs:
       - name: Compute upstream version
         id: get_upstream
         run: |
-          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_${{ matrix.branch }}-${{ steps.get_version.outputs.short_commit }}" >> "$GITHUB_OUTPUT"
+          LOCK_HASH=$(sha256sum fr3d/uv/${{ matrix.branch }}/uv.lock | cut -c1-12)
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_${{ matrix.branch }}-${{ steps.get_version.outputs.short_commit }}_${LOCK_HASH}" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Decide whether to rebuild
@@ -135,7 +147,7 @@ jobs:
           context: ./fr3d
           build-args: |
             CLI2REST_BASE=${{ steps.get_base.outputs.ref }}
-            FR3D_REF=${{ steps.get_version.outputs.commit_hash }}
+            FR3D_CHANNEL=${{ matrix.branch }}
           pull: true
           push: ${{ github.event_name != 'pull_request' }}
           load: true
