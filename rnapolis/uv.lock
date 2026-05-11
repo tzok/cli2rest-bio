@@ -72,7 +72,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "rnapolis", specifier = "==0.16.3" }]
+requires-dist = [{ name = "rnapolis", specifier = "==0.16.6" }]
 
 [[package]]
 name = "colorama"
@@ -123,25 +123,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a9/95/a3dbbb5028f35eafb79008e7522a75244477d2838f38cbb722248dabc2a8/cycler-0.12.1.tar.gz", hash = "sha256:88bb128f02ba341da8ef447245a9e138fae777f6a23943da4540077d3601eb1c", size = 7615, upload-time = "2023-10-07T05:32:18.335Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e7/05/c19819d5e3d95294a6f5947fb9b9629efb316b96de511b418c53d245aae6/cycler-0.12.1-py3-none-any.whl", hash = "sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30", size = 8321, upload-time = "2023-10-07T05:32:16.783Z" },
-]
-
-[[package]]
-name = "faiss-cpu"
-version = "1.13.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "packaging" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/c9/671f66f6b31ec48e5825d36435f0cb91189fa8bb6b50724029dbff4ca83c/faiss_cpu-1.13.2-cp310-abi3-macosx_14_0_arm64.whl", hash = "sha256:a9064eb34f8f64438dd5b95c8f03a780b1a3f0b99c46eeacb1f0b5d15fc02dc1", size = 3452776, upload-time = "2025-12-24T10:27:01.419Z" },
-    { url = "https://files.pythonhosted.org/packages/5a/4a/97150aa1582fb9c2bca95bd8fc37f27d3b470acec6f0a6833844b21e4b40/faiss_cpu-1.13.2-cp310-abi3-macosx_14_0_x86_64.whl", hash = "sha256:c8d097884521e1ecaea6467aeebbf1aa56ee4a36350b48b2ca6b39366565c317", size = 7896434, upload-time = "2025-12-24T10:27:03.592Z" },
-    { url = "https://files.pythonhosted.org/packages/0b/d0/0940575f059591ca31b63a881058adb16a387020af1709dcb7669460115c/faiss_cpu-1.13.2-cp310-abi3-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:0ee330a284042c2480f2e90450a10378fd95655d62220159b1408f59ee83ebf1", size = 11485825, upload-time = "2025-12-24T10:27:05.681Z" },
-    { url = "https://files.pythonhosted.org/packages/e7/e1/a5acac02aa593809f0123539afe7b4aff61d1db149e7093239888c9053e1/faiss_cpu-1.13.2-cp310-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ab88ee287c25a119213153d033f7dd64c3ccec466ace267395872f554b648cd7", size = 23845772, upload-time = "2025-12-24T10:27:08.194Z" },
-    { url = "https://files.pythonhosted.org/packages/9c/7b/49dcaf354834ec457e85ca769d50bc9b5f3003fab7c94a9dcf08cf742793/faiss_cpu-1.13.2-cp310-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:85511129b34f890d19c98b82a0cd5ffb27d89d1cec2ee41d2621ee9f9ef8cf3f", size = 13477567, upload-time = "2025-12-24T10:27:10.822Z" },
-    { url = "https://files.pythonhosted.org/packages/f7/6b/12bb4037921c38bb2c0b4cfc213ca7e04bbbebbfea89b0b5746248ce446e/faiss_cpu-1.13.2-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:8b32eb4065bac352b52a9f5ae07223567fab0a976c7d05017c01c45a1c24264f", size = 25102239, upload-time = "2025-12-24T10:27:13.476Z" },
-    { url = "https://files.pythonhosted.org/packages/60/4b/903d85bf3a8264d49964ec799e45c7ffc91098606b8bc9ef2c904c1a56cb/faiss_cpu-1.13.2-cp313-cp313-win_amd64.whl", hash = "sha256:cb4b5ee184816a4b099162ac93c0d7f0033d81a88e7c1291d0a9cc41ec348984", size = 18891330, upload-time = "2025-12-24T10:27:28.806Z" },
-    { url = "https://files.pythonhosted.org/packages/b2/52/5d10642da628f63544aab27e48416be4a7ea25c6b81d8bd65016d8538b00/faiss_cpu-1.13.2-cp313-cp313-win_arm64.whl", hash = "sha256:1243967eeb2298791ff7f3683a4abd2100d7e6ec7542ca05c3b75d47a7f621e5", size = 8553088, upload-time = "2025-12-24T10:27:31.325Z" },
 ]
 
 [[package]]
@@ -520,12 +501,11 @@ wheels = [
 
 [[package]]
 name = "rnapolis"
-version = "0.16.3"
+version = "0.16.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "appdirs" },
     { name = "apricot-select" },
-    { name = "faiss-cpu" },
     { name = "graphviz" },
     { name = "mmcif" },
     { name = "numpy" },
@@ -541,9 +521,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "viennarna" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bb/d5/33b3b0ef26fe9ce1fd44bebb948fdb6f5ac37c1558ef4f41ca01090c0e90/rnapolis-0.16.3.tar.gz", hash = "sha256:4b2e6643c9674a074cce5861bbc4d93f41a02bbbc80532213f82a73b189dbda2", size = 721985, upload-time = "2026-04-17T11:53:42.282Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/90/65415865558cbd17d7dc9617eac2f09c04fa9ce860541cdf59f3417f4d2c/rnapolis-0.16.6.tar.gz", hash = "sha256:afcb7f67546b1caa9a0c5757e2efcfdab6ba85d9b2fd9428313bf93976bfdb32", size = 724695, upload-time = "2026-05-11T15:16:10.53Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4e/52/3617efa82d64ace62e87e4b869d42a9ac1353db4ab1b8b0c7949d75f9009/rnapolis-0.16.3-py3-none-any.whl", hash = "sha256:bc078571d16dcca44062bbe7765d3f76f87d0238b1dfe8ce82ee00cd595c706a", size = 745288, upload-time = "2026-04-17T11:53:43.594Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/2f/d6144d615ba52cebe433e11e6f92396a0d3854fc88c9e6d03ddf5adf5175/rnapolis-0.16.6-py3-none-any.whl", hash = "sha256:f705eea95b6a68ae44909f31acb007a8f87463392f0fd6d48a094888c2f08097", size = 747760, upload-time = "2026-05-11T15:16:12.408Z" },
 ]
 
 [[package]]
