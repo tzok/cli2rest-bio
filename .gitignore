@@ -8,5 +8,9 @@ devenv.local.nix
 # direnv
 .direnv
 
+# uv
+.venv/
+__pycache__/
+
 # pre-commit
 .pre-commit-config.yaml

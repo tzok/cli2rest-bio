@@ -1,13 +1,8 @@
 { pkgs, ... }:
 {
-  languages.python = {
-    enable = true;
-    venv = {
-      enable = true;
-      requirements = ./requirements.txt;
-    };
-  };
+  languages.python.enable = true;
   packages = with pkgs; [
+    uv
     pyright
     zlib
   ];

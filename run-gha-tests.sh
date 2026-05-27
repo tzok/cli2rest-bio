@@ -84,7 +84,7 @@ done
 require_cmd docker
 require_cmd curl
 require_cmd jq
-require_cmd python
+require_cmd uv
 
 if [[ -z "$WORKDIR" ]]; then
   WORKDIR="$(mktemp -d -t cli2rest-bio-tests.XXXXXX)"
@@ -95,10 +95,10 @@ fi
 
 echo "Workdir: $WORKDIR" >&2
 
-echo "Installing cli2rest-bio into current Python environment..." >&2
+echo "Syncing cli2rest-bio environment with uv..." >&2
 (
   cd "$ROOT_DIR"
-  python -m pip install .
+  uv sync --locked
 )
 
 pull_image() {
@@ -206,7 +206,7 @@ test_reduce() {
 
   curl -L -o 1ehz.pdb https://files.rcsb.org/download/1EHZ.pdb >/dev/null
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/reduce/config.yaml" 1ehz.pdb
   assert_completed metadata.json
   assert_files_exist reduce-1ehz-output.pdb
@@ -227,7 +227,7 @@ test_maxit() {
 
   curl -L -o 1ehz.pdb https://files.rcsb.org/download/1EHZ.pdb >/dev/null
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/maxit/config-pdb2cif.yaml" 1ehz.pdb
   assert_completed metadata.json
   assert_files_exist maxit-1ehz-output.cif
@@ -248,7 +248,7 @@ test_fr3d() {
 
   curl -L -o 1ehz.cif https://files.rcsb.org/download/1EHZ.cif >/dev/null
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/fr3d/config.yaml" 1ehz.cif
   assert_completed metadata.json
   assert_files_exist \
@@ -272,7 +272,7 @@ test_inkscape() {
 
   printf '%s\n' '<svg height="233" width="526" xmlns="http://www.w3.org/2000/svg"><rect fill="none" height="200" rx="50" ry="100" stroke="#00f" stroke-width="10" width="500" x="13" y="14"/></svg>' > example.svg
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/inkscape/config-svg2png.yaml" example.svg
   assert_completed metadata.json
   assert_files_exist inkscape-example-output.png
@@ -293,7 +293,7 @@ test_mc_annotate() {
 
   curl -L -o 1ehz.pdb https://files.rcsb.org/download/1EHZ.pdb >/dev/null
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/mc-annotate/config.yaml" 1ehz.pdb
   assert_completed metadata.json
   assert_files_exist mc-annotate-1ehz-stdout.txt
@@ -323,7 +323,7 @@ test_rchie() {
 }
 EOF
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/rchie/config.yaml" example.json
   assert_completed metadata.json
   assert_files_exist rchie-example-clean.svg
@@ -344,7 +344,7 @@ test_rnaview() {
 
   curl -L -o 1ehz.pdb https://files.rcsb.org/download/1EHZ.pdb >/dev/null
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/rnaview/config-pdb.yaml" 1ehz.pdb
   assert_completed metadata.json
   assert_files_exist rnaview-1ehz-input.pdb.out
@@ -387,7 +387,7 @@ test_varna_tz() {
 }
 EOF
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/varna-tz/config.yaml" example.json
   assert_completed metadata.json
   assert_files_exist varna-tz-example-clean.svg
@@ -408,7 +408,7 @@ test_bpnet() {
 
   curl -L -o 1ehz.pdb https://files.rcsb.org/download/1EHZ.pdb >/dev/null
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/bpnet/config-pdb.yaml" 1ehz.pdb
   assert_completed metadata.json
   assert_files_exist bpnet-1ehz-input.rob
@@ -429,7 +429,7 @@ test_barnaba() {
 
   curl -L -o 1ehz.pdb https://files.rcsb.org/download/1EHZ.pdb >/dev/null
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/barnaba/config.yaml" 1ehz.pdb
   assert_completed metadata.json
   assert_files_exist \
@@ -453,7 +453,7 @@ test_rnapolis() {
   # Verify coplanarity-checker-wrapper.py via cli2rest-bio
   docker cp "$cname:/usr/local/share/rnapolis/base-triple.cif" base-triple.cif
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/rnapolis/config-coplanarity-checker.yaml" base-triple.cif
   assert_completed metadata.json
   assert_files_exist rnapolis-output.json
@@ -466,12 +466,12 @@ test_rnapolis() {
 
   curl -L -o 1ehz.pdb https://files.rcsb.org/download/1EHZ.pdb >/dev/null
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/rnapolis/config-splitter.yaml" 1ehz.pdb
   assert_completed metadata.json
   assert_files_exist rnapolis-1ehz-output.tar.gz
 
-  cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
     "$ROOT_DIR/src/cli2rest_bio/configs/rnapolis/config-annotator.yaml" 1ehz.pdb
   assert_completed metadata.json
   assert_files_exist rnapolis-1ehz-output.json
