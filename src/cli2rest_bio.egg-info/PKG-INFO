@@ -6,7 +6,7 @@ Author-email: Tomasz Zok <tomasz.zok@cs.put.poznan.pl>
 License-Expression: MIT
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: docker>=6.1.3
@@ -54,11 +54,14 @@ Each tool is containerized with Docker and exposed through a REST API that follo
 You can install the CLI2REST Bio tool directly from this repository:
 
 ```bash
-# Install from the repository
-pip install .
+# Create or refresh the project environment
+uv sync
 
-# Or install in development mode
-pip install -e .
+# Run the CLI from the project environment
+uv run cli2rest-bio --help
+
+# Or install the CLI as a tool
+uv tool install .
 ```
 
 ## Using the CLI2REST Command Line Tool
@@ -204,9 +207,17 @@ docker pull ghcr.io/tzok/cli2rest-barnaba:latest
 
 ## Requirements
 
-- Python 3.7+
+- Python 3.10+
 - Docker
-- Python packages: docker, requests, pyyaml (automatically installed when using pip)
+- `uv`
+
+## Maintainer Notes
+
+- The root CLI project is `uv`-managed via `pyproject.toml` and `uv.lock`.
+- `rnapolis`, `barnaba`, and `fr3d` use tool-local `uv` lockfiles for image builds.
+- `rnapolis` is pinned to a PyPI release and updated through Dependabot.
+- `barnaba` and both `fr3d` channels are pinned manually by Git SHA.
+- See `docs/python-tool-pinning.md` for the pinning and lock refresh workflow.
 
 ## License
 

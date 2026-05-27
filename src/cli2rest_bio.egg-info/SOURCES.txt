@@ -2,11 +2,14 @@ LICENSE
 MANIFEST.in
 README.md
 pyproject.toml
-requirements.txt
 setup.py
 fr3d/Dockerfile
 fr3d/README.md
 fr3d/wrapper.py
+fr3d/uv/latest/pyproject.toml
+fr3d/uv/latest/uv.lock
+fr3d/uv/master/pyproject.toml
+fr3d/uv/master/uv.lock
 maxit/Dockerfile
 maxit/README.md
 reduce/Dockerfile

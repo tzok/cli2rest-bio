@@ -38,11 +38,14 @@ Each tool is containerized with Docker and exposed through a REST API that follo
 You can install the CLI2REST Bio tool directly from this repository:
 
 ```bash
-# Install from the repository
-pip install .
+# Create or refresh the project environment
+uv sync
 
-# Or install in development mode
-pip install -e .
+# Run the CLI from the project environment
+uv run cli2rest-bio --help
+
+# Or install the CLI as a tool
+uv tool install .
 ```
 
 ## Using the CLI2REST Command Line Tool
@@ -51,29 +54,31 @@ After installation, you can use the `cli2rest-bio` command to interact with the 
 
 ```bash
 # Basic usage
-cli2rest-bio <config_file> <input_file1> [<input_file2> ...]
+uv run cli2rest-bio <config_file> <input_file1> [<input_file2> ...]
 
 # Example with Reduce
-cli2rest-bio reduce/config.yaml sample.pdb
+uv run cli2rest-bio reduce/config.yaml sample.pdb
 
 # Example with MaxiT for PDB to CIF conversion
-cli2rest-bio maxit/config-pdb2cif.yaml sample.pdb
+uv run cli2rest-bio maxit/config-pdb2cif.yaml sample.pdb
 
 # Example with R-Chie for arc diagram visualization
-cli2rest-bio rchie/config.yaml your_rchie_input.json
+uv run cli2rest-bio rchie/config.yaml your_rchie_input.json
 
 # Example with BPNet for base pair network analysis (mmCIF files)
-cli2rest-bio bpnet/config-cif.yaml sample.cif
+uv run cli2rest-bio bpnet/config-cif.yaml sample.cif
 
 # Example with BPNet for base pair network analysis (PDB files)
-cli2rest-bio bpnet/config-pdb.yaml sample.pdb
+uv run cli2rest-bio bpnet/config-pdb.yaml sample.pdb
 
 # Process multiple files
-cli2rest-bio fr3d/config.yaml sample1.cif sample2.cif sample3.cif
+uv run cli2rest-bio fr3d/config.yaml sample1.cif sample2.cif sample3.cif
 
 # Control parallelism
-cli2rest-bio --threads 4 rnaview/config-pdb.yaml *.pdb
+uv run cli2rest-bio --threads 4 rnaview/config-pdb.yaml *.pdb
 ```
+
+If you installed the project with `uv tool install .`, you can omit the `uv run` prefix.
 
 The script will:
 1. Start the appropriate Docker container
@@ -92,7 +97,7 @@ Each tool requires a YAML configuration file that specifies:
 - `input_files` (list of strings, optional): A list of relative paths expected by the tool for the input files. The first path in this list corresponds to the primary input file provided on the command line. Subsequent files are inferred based on the primary file's name and location (see `cli2rest-bio.py` for details). Prefer this over `input_file`.
 - `output_files`: List of relative paths for output files to retrieve from the container (optional).
 
-**Note:** Default configuration files for the included tools are packaged within the `src/cli2rest_bio/configs` directory. When you run `cli2rest-bio <config_path> ...`, the tool first looks for `<config_path>` relative to your current directory. If not found, it attempts to load the configuration from the package's internal `configs` directory (e.g., `cli2rest-bio fr3d/config.yaml` will load the packaged `fr3d/config.yaml` if it's not present locally).
+**Note:** Default configuration files for the included tools are packaged within the `src/cli2rest_bio/configs` directory. When you run `uv run cli2rest-bio <config_path> ...`, the tool first looks for `<config_path>` relative to your current directory. If not found, it attempts to load the configuration from the package's internal `configs` directory (e.g., `uv run cli2rest-bio fr3d/config.yaml` will load the packaged `fr3d/config.yaml` if it's not present locally).
 
 Example configuration (reduce/config.yaml):
 ```yaml
@@ -188,12 +193,13 @@ docker pull ghcr.io/tzok/cli2rest-barnaba:latest
 
 ## Requirements
 
-- Python 3.7+
+- Python 3.10+
 - Docker
-- Python packages: docker, requests, pyyaml (automatically installed when using pip)
+- `uv`
 
 ## Maintainer Notes
 
+- The root CLI project is `uv`-managed via `pyproject.toml` and `uv.lock`.
 - `rnapolis`, `barnaba`, and `fr3d` use tool-local `uv` lockfiles for image builds.
 - `rnapolis` is pinned to a PyPI release and updated through Dependabot.
 - `barnaba` and both `fr3d` channels are pinned manually by Git SHA.

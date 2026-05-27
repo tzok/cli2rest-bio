@@ -1,6 +1,31 @@
 # Python Tool Pinning
 
-`rnapolis`, `barnaba`, and `fr3d` now use tool-local `uv` projects and lockfiles.
+The repository root, plus `rnapolis`, `barnaba`, and `fr3d`, use `uv` projects and lockfiles.
+
+## Root CLI project
+
+- Manifest: `pyproject.toml`
+- Lockfile: `uv.lock`
+- Source: PyPI
+- Update mode: automatic via Dependabot `uv` updates
+
+Refresh the root lockfile after dependency changes with:
+
+```bash
+uv lock
+```
+
+Sync the local development environment with:
+
+```bash
+uv sync --locked
+```
+
+Run the CLI from the locked project environment with:
+
+```bash
+uv run --locked cli2rest-bio --help
+```
 
 ## Update model
 
