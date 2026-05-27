@@ -20,6 +20,14 @@ import requests
 import yaml
 
 
+def positive_float(value: str) -> float:
+    """Parse a positive floating-point value."""
+    parsed_value = float(value)
+    if parsed_value <= 0:
+        raise argparse.ArgumentTypeError("Timeout must be greater than 0")
+    return parsed_value
+
+
 def load_tool_config(config_path: str):
     """
     Load the YAML configuration.
@@ -134,7 +142,13 @@ def parse_arguments():
     parser.add_argument(
         "--output-metadata",
         type=str,
-        help="Path to save the metadata JSON from the response (minified).",
+        help="Path to save the response metadata JSON (minified). Single-file and batch runs write one JSON object; standard multi-file runs write an array ordered by input file.",
+    )
+
+    parser.add_argument(
+        "--timeout",
+        type=positive_float,
+        help="Optional command timeout in seconds sent to the API. In standard multi-file mode it applies per input file; in batch mode it applies to the single batch command.",
     )
 
     # Add config file and input files as positional arguments
@@ -145,6 +159,42 @@ def parse_arguments():
     )
 
     return parser.parse_args()
+
+
+def build_error_metadata(
+    command: List[str],
+    output_file_names: List[str],
+    stderr: str | None = None,
+    http_code: int | None = None,
+    http_message: str | None = None,
+) -> Dict[str, Any]:
+    """Build fallback metadata for client-side failures."""
+    return {
+        "status": "CLI2REST-FAILED",
+        "http_code": http_code,
+        "http_message": http_message,
+        "exit_code": None,
+        "missing_files": output_file_names,
+        "execution_stats": {
+            "start_time": None,
+            "end_time": None,
+            "duration_seconds": None,
+            "max_rss_kb": None,
+            "cpu_user_seconds": None,
+        },
+        "stdout": None,
+        "stderr": stderr,
+        "command": command,
+    }
+
+
+def write_metadata_output(output_path: str, metadata: Any) -> None:
+    """Write response metadata JSON to disk."""
+    try:
+        with open(output_path, "w") as f:
+            json.dump(metadata, f, separators=(",", ":"))
+    except IOError as e:
+        print(f"Error writing metadata file: {e}", file=sys.stderr)
 
 
 def start_docker_container(
@@ -220,7 +270,7 @@ def process_file(
     base_url: str,
     tool_name: str,
     output_dir_base: str,
-):
+) -> Dict[str, Any]:
     """Process a single input file using the specified tool configuration."""
     # Get file information
     input_base = os.path.splitext(os.path.basename(input_file))[0]
@@ -238,9 +288,12 @@ def process_file(
     # Get configuration directly from the YAML
     # Get the full arguments list (including the tool command)
     full_arguments = config.get("arguments", [])
+    output_file_names = config.get("output_files", [])
+
     if not full_arguments:
-        print("Error: No arguments specified in configuration", file=sys.stderr)
-        return
+        message = "No arguments specified in configuration"
+        print(f"Error: {message}", file=sys.stderr)
+        return build_error_metadata(full_arguments, output_file_names, stderr=message)
 
     # Prepare input files for the 'files' parameter
     files_to_upload: Dict[str, Tuple[str, Union[BinaryIO, gzip.GzipFile]]] = {}
@@ -261,17 +314,21 @@ def process_file(
             # and pass the configured filename within the tuple.
             files_to_upload["input_files"] = (input_file_config_path, file_object)
         except FileNotFoundError:
-            print(f"Error: Input file {input_file} not found.", file=sys.stderr)
-            return
+            message = f"Input file {input_file} not found."
+            print(f"Error: {message}", file=sys.stderr)
+            return build_error_metadata(
+                full_arguments, output_file_names, stderr=message
+            )
         except Exception as e:
-            print(f"Error opening input file {input_file}: {e}", file=sys.stderr)
-            return
+            message = f"Error opening input file {input_file}: {e}"
+            print(message, file=sys.stderr)
+            return build_error_metadata(
+                full_arguments, output_file_names, stderr=message
+            )
     else:
-        print("Error: No input_file specified in configuration", file=sys.stderr)
-        return
-
-    # Get expected output file names
-    output_file_names = config.get("output_files", [])
+        message = "No input_file specified in configuration"
+        print(f"Error: {message}", file=sys.stderr)
+        return build_error_metadata(full_arguments, output_file_names, stderr=message)
 
     # Prepare form data
     form_data = {
@@ -280,47 +337,42 @@ def process_file(
             output_file_names
         ),  # Send output file names as tuple/list
     }
+    if args.timeout is not None:
+        form_data["timeout"] = str(args.timeout)
 
     # Send the request to the API endpoint using multipart/form-data
     try:
-        response = requests.post(
-            f"{base_url}/run-command",
-            data=form_data,
-            files=files_to_upload,
-        )
+        try:
+            response = requests.post(
+                f"{base_url}/run-command",
+                data=form_data,
+                files=files_to_upload,
+            )
+        except requests.RequestException as e:
+            message = f"Error processing {input_file}: {e}"
+            print(message, file=sys.stderr)
+            return build_error_metadata(
+                full_arguments,
+                output_file_names,
+                stderr=str(e),
+            )
     finally:
         # Ensure uploaded files are closed
         for _, fd in files_to_upload.values():
             fd.close()
 
     # Prepare error metadata in case of failure
-    error_metadata: Dict[str, Any] = {
-        "status": "CLI2REST-FAILED",
-        "http_code": response.status_code,
-        "http_message": response.reason,
-        "exit_code": None,
-        "missing_files": output_file_names,
-        "execution_stats": {
-            "start_time": None,
-            "end_time": None,
-            "duration_seconds": None,
-            "max_rss_kb": None,
-            "cpu_user_seconds": None,
-        },
-        "stdout": None,
-        "stderr": None,
-        "command": full_arguments,
-    }
+    error_metadata = build_error_metadata(
+        full_arguments,
+        output_file_names,
+        stderr=response.text if response.status_code != 200 else None,
+        http_code=response.status_code,
+        http_message=response.reason,
+    )
 
     if response.status_code != 200:
         print(f"Error processing {input_file}: {response.text}", file=sys.stderr)
-        if args.output_metadata:
-            try:
-                with open(args.output_metadata, "w") as f:
-                    json.dump(error_metadata, f, separators=(",", ":"))
-            except IOError as e:
-                print(f"Error writing metadata file: {e}", file=sys.stderr)
-        return
+        return error_metadata
 
     # Parse the multipart response
     raw_message = (
@@ -369,18 +421,15 @@ def process_file(
         )
         result = error_metadata
 
-    if args.output_metadata:
-        try:
-            with open(args.output_metadata, "w") as f:
-                json.dump(result, f, separators=(",", ":"))
-        except IOError as e:
-            print(f"Error writing metadata file: {e}", file=sys.stderr)
-
-    if result.get("status") != "COMPLETED":
+    if result.get("status") == "TIMEOUT":
+        print(f"API timed out for {input_file}", file=sys.stderr)
+    elif result.get("status") != "COMPLETED":
         print(
             f"API returned status {result.get('status')} for {input_file}",
             file=sys.stderr,
         )
+
+    return result
 
 
 def process_files_batch(
@@ -390,7 +439,7 @@ def process_files_batch(
     base_url: str,
     tool_name: str,
     output_dir_base: str,
-):
+) -> Dict[str, Any]:
     """Process multiple input files in a single API call (batch mode)."""
     effective_output_dir = output_dir_base or os.getcwd()
 
@@ -400,9 +449,12 @@ def process_files_batch(
     print(f"Processing {len(input_files)} file(s) in batch mode", file=sys.stderr)
 
     full_arguments = config.get("arguments", [])
+    output_file_names = config.get("output_files", [])
+
     if not full_arguments:
-        print("Error: No arguments specified in configuration", file=sys.stderr)
-        return
+        message = "No arguments specified in configuration"
+        print(f"Error: {message}", file=sys.stderr)
+        return build_error_metadata(full_arguments, output_file_names, stderr=message)
 
     # Prepare multiple input files for upload
     files_to_upload: List[Tuple[str, Tuple[str, Union[BinaryIO, gzip.GzipFile]]]] = []
@@ -423,64 +475,62 @@ def process_files_batch(
             files_to_upload.append(("input_files", (filename, file_object)))
             opened_files.append(file_object)
         except FileNotFoundError:
-            print(f"Error: Input file {input_file} not found.", file=sys.stderr)
+            message = f"Input file {input_file} not found."
+            print(f"Error: {message}", file=sys.stderr)
             for f in opened_files:
                 f.close()
-            return
+            return build_error_metadata(
+                full_arguments, output_file_names, stderr=message
+            )
         except Exception as e:
-            print(f"Error opening input file {input_file}: {e}", file=sys.stderr)
+            message = f"Error opening input file {input_file}: {e}"
+            print(message, file=sys.stderr)
             for f in opened_files:
                 f.close()
-            return
-
-    # Get expected output file names
-    output_file_names = config.get("output_files", [])
+            return build_error_metadata(
+                full_arguments, output_file_names, stderr=message
+            )
 
     # Prepare form data
     form_data = {
         "arguments": tuple(full_arguments),
         "output_files": tuple(output_file_names),
     }
+    if args.timeout is not None:
+        form_data["timeout"] = str(args.timeout)
 
     # Send the request
     try:
-        response = requests.post(
-            f"{base_url}/run-command",
-            data=form_data,
-            files=files_to_upload,
-        )
+        try:
+            response = requests.post(
+                f"{base_url}/run-command",
+                data=form_data,
+                files=files_to_upload,
+            )
+        except requests.RequestException as e:
+            message = f"Error processing batch: {e}"
+            print(message, file=sys.stderr)
+            return build_error_metadata(
+                full_arguments,
+                output_file_names,
+                stderr=str(e),
+            )
     finally:
         for f in opened_files:
             f.close()
 
     # Prepare error metadata in case of failure
-    error_metadata: Dict[str, Any] = {
-        "status": "CLI2REST-FAILED",
-        "http_code": response.status_code,
-        "http_message": response.reason,
-        "exit_code": None,
-        "missing_files": output_file_names,
-        "execution_stats": {
-            "start_time": None,
-            "end_time": None,
-            "duration_seconds": None,
-            "max_rss_kb": None,
-            "cpu_user_seconds": None,
-        },
-        "stdout": None,
-        "stderr": None,
-        "command": full_arguments,
-    }
+    error_metadata = build_error_metadata(
+        full_arguments,
+        output_file_names,
+        stderr=response.text if response.status_code != 200 else None,
+        http_code=response.status_code,
+        http_message=response.reason,
+    )
 
     if response.status_code != 200:
         print(f"Error processing batch: {response.text}", file=sys.stderr)
-        if args.output_metadata:
-            try:
-                with open(args.output_metadata, "w") as f:
-                    json.dump(error_metadata, f, separators=(",", ":"))
-            except IOError as e:
-                print(f"Error writing metadata file: {e}", file=sys.stderr)
-        return
+        return error_metadata
 
     # Parse the multipart response
     raw_message = (
@@ -528,18 +578,15 @@ def process_files_batch(
         )
         result = error_metadata
 
-    if args.output_metadata:
-        try:
-            with open(args.output_metadata, "w") as f:
-                json.dump(result, f, separators=(",", ":"))
-        except IOError as e:
-            print(f"Error writing metadata file: {e}", file=sys.stderr)
-
-    if result.get("status") != "COMPLETED":
+    if result.get("status") == "TIMEOUT":
+        print("API timed out for batch request", file=sys.stderr)
+    elif result.get("status") != "COMPLETED":
         print(
             f"API returned status {result.get('status')} for batch request",
             file=sys.stderr,
         )
+
+    return result
 
 
 def main():
@@ -595,10 +642,13 @@ def main():
         container, port = start_docker_container(config["docker_image"])
         base_url = f"http://localhost:{port}"
 
+    metadata_output: Any = None
+    exit_code = 0
+
     try:
         if config.get("input_files"):
             # Batch mode: send all files in a single API call
-            process_files_batch(
+            batch_result = process_files_batch(
                 input_files,
                 config,
                 args,
@@ -606,6 +656,9 @@ def main():
                 tool_name,
                 args.output_dir,
             )
+            metadata_output = batch_result
+            if batch_result.get("status") != "COMPLETED":
+                exit_code = 1
         else:
             # Standard mode: process files individually in parallel
             with ThreadPoolExecutor(max_workers=args.threads) as executor:
@@ -622,9 +675,22 @@ def main():
                     for input_file in input_files
                 ]
 
-                # Wait for all tasks to complete
-                for future in futures:
-                    future.result()
+                # Wait for all tasks to complete in CLI input order.
+                results = [future.result() for future in futures]
+
+            if len(results) == 1:
+                metadata_output = results[0]
+            else:
+                metadata_output = [
+                    {"input_file": input_file, **result}
+                    for input_file, result in zip(input_files, results)
+                ]
+
+            if any(result.get("status") != "COMPLETED" for result in results):
+                exit_code = 1
+
+        if args.output_metadata and metadata_output is not None:
+            write_metadata_output(args.output_metadata, metadata_output)
 
     finally:
         # Clean up - stop and remove the container if we created one
@@ -632,6 +698,9 @@ def main():
             stop_docker_container(container)
 
     print("Done!", file=sys.stderr)
+
+    if exit_code != 0:
+        sys.exit(exit_code)
 
 
 if __name__ == "__main__":
