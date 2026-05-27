@@ -76,6 +76,12 @@ uv run cli2rest-bio fr3d/config.yaml sample1.cif sample2.cif sample3.cif
 
 # Control parallelism
 uv run cli2rest-bio --threads 4 rnaview/config-pdb.yaml *.pdb
+
+# Set an execution timeout on the upstream command
+uv run cli2rest-bio --timeout 30 reduce/config.yaml sample.pdb
+
+# Save combined metadata for multiple standard-mode inputs
+uv run cli2rest-bio --output-metadata metadata.json fr3d/config.yaml sample1.cif sample2.cif
 ```
 
 If you installed the project with `uv tool install .`, you can omit the `uv run` prefix.
@@ -85,6 +91,9 @@ The script will:
 2. Process each input file according to the configuration
 3. Save output files with the tool name as a prefix
 4. Clean up the container when done
+
+When `--output-metadata` is used, single-file and batch runs write one JSON object.
+Standard multi-file runs write a JSON array ordered by the input files passed on the command line.
 
 ## Configuration Files
 
