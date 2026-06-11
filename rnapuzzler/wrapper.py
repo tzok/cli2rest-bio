@@ -95,7 +95,20 @@ class PuzzlerInteraction:
 
 
 def color_to_svg(color_str: str) -> str:
+    color_str = color_str.strip()
+    if not color_str:
+        return "rgb(128,128,128)"
+    if color_str.startswith("#"):
+        return color_str
+    if color_str.startswith("rgb("):
+        return color_str
+    if "," in color_str:
+        parts = [part.strip() for part in color_str.split(",")]
+        if len(parts) == 3:
+            return f"rgb({int(parts[0])},{int(parts[1])},{int(parts[2])})"
     parts = color_str.split()
+    if len(parts) != 3:
+        raise ValueError(f"Unsupported color format: {color_str}")
     r = int(round(float(parts[0]) * 255))
     g = int(round(float(parts[1]) * 255))
     b = int(round(float(parts[2]) * 255))
@@ -208,7 +221,7 @@ def preprocess(
                 PuzzlerInteraction(
                     interaction["i"],
                     interaction["j"],
-                    COLORS["NOT_REPRESENTED"],
+                    interaction.get("color") or COLORS["NOT_REPRESENTED"],
                 )
             )
 
