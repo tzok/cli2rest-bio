@@ -81,26 +81,22 @@ jobs:
             apt-get update -qq > /dev/null
             apt-get install -y -qq --no-install-recommends \
               python3-lxml \
-              python3-rna \
               vienna-rna \
               > /dev/null
             VIENNA_VER=$(dpkg-query -W -f=\${Version} vienna-rna)
-            PYTHON_RNA_VER=$(dpkg-query -W -f=\${Version} python3-rna)
-            printf "VIENNA_VERSION=%s\nPYTHON_RNA_VERSION=%s\n" "$VIENNA_VER" "$PYTHON_RNA_VER"
+            printf "VIENNA_VERSION=%s\n" "$VIENNA_VER"
           ')
 
           echo "$VERSIONS"
 
           VIENNA_VERSION=$(echo "$VERSIONS" | grep "^VIENNA_VERSION=" | cut -d= -f2)
-          PYTHON_RNA_VERSION=$(echo "$VERSIONS" | grep "^PYTHON_RNA_VERSION=" | cut -d= -f2)
 
-          if [ -z "$VIENNA_VERSION" ] || [ -z "$PYTHON_RNA_VERSION" ]; then
-            echo "Error: Could not determine ViennaRNA/python3-rna versions from base image."
+          if [ -z "$VIENNA_VERSION" ]; then
+            echo "Error: Could not determine ViennaRNA version from base image."
             exit 1
           fi
 
           echo "vienna_version=$VIENNA_VERSION" >> "$GITHUB_OUTPUT"
-          echo "python_rna_version=$PYTHON_RNA_VERSION" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Compute upstream version

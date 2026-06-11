@@ -6,7 +6,7 @@ This directory contains the configuration and wrapper script to run RNApuzzler (
 
 RNApuzzler is a layout algorithm for RNA secondary structure visualization, available as part of the [ViennaRNA](https://www.tbi.univie.ac.at/RNA/) package. It produces publication-quality SVG diagrams of RNA structures using a puzzle-piece layout.
 
-The wrapper accepts a JSON input describing RNA strands with extended dot-bracket notation and optional non-canonical interactions, generates an SVG using the RNApuzzler algorithm, and post-processes it (colored interaction lines, missing residue markers, strand boundary gaps, CSS cleanup). The final SVG is optimized with `svgcleaner`.
+The wrapper accepts a JSON input describing RNA strands with extended dot-bracket notation and optional non-canonical interactions, generates an SVG with the `RNAplot` CLI using the RNApuzzler layout, and post-processes it (colored interaction lines, missing residue markers, strand boundary gaps, CSS cleanup). The final SVG is optimized with `svgcleaner`.
 
 ## Configuration (`config.yaml`)
 

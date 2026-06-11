@@ -10,7 +10,6 @@ from enum import Enum
 from tempfile import TemporaryDirectory
 from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, TypedDict
 
-import RNA
 from lxml import etree
 
 
@@ -235,16 +234,26 @@ def generate_rnapuzzler_svg(sequence: str, structure: str) -> str:
             f"Maximum structure length ({MAX_STRUCTURE_LENGTH}) for RNApuzzler exceeded"
         )
 
-    layout = RNA.plot_layout(structure, RNA.PLOT_TYPE_PUZZLER)
-
     with TemporaryDirectory() as directory:
-        output_file = os.path.join(directory, OUTPUT_SVG)
-        result = RNA.plot_structure_svg(output_file, sequence, structure, layout)
+        subprocess.run(
+            ["RNAplot", "-t", "4", "--output-format=svg"],
+            input=f">rna\n{sequence}\n{structure}\n",
+            capture_output=True,
+            cwd=directory,
+            text=True,
+            check=True,
+        )
 
-        if result == 0 or not os.path.isfile(output_file):
+        svg_candidates = [
+            os.path.join(directory, filename)
+            for filename in os.listdir(directory)
+            if filename.endswith(".svg")
+        ]
+
+        if not svg_candidates:
             raise RuntimeError("RNApuzzler SVG was not created!")
 
-        with open(output_file, "r", encoding="utf-8") as f:
+        with open(svg_candidates[0], "r", encoding="utf-8") as f:
             svg_content = f.read()
 
         if "<svg" not in svg_content:

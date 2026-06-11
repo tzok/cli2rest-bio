@@ -5,7 +5,6 @@ FROM ${CLI2REST_BASE}
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       python3-lxml \
-      python3-rna \
       vienna-rna \
  && rm -rf /var/lib/apt/lists/*
 
