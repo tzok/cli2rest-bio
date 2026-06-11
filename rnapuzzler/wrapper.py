@@ -92,7 +92,7 @@ class PuzzlerInteraction:
     number_left: int
     number_right: int
     color: str
-    stroke_width: str = "1.5"
+    stroke_width: str = "2.5"
     dasharray: Optional[str] = None
     dashoffset: Optional[str] = None
 
@@ -195,7 +195,7 @@ def preprocess(
                         residue_stack[symbol.sibling].pop(),  # type: ignore[arg-type]
                         i + 1,
                         "rgb(0,0,0)",
-                        stroke_width="2",
+                        stroke_width="3",
                     )
                 )
         else:
@@ -611,7 +611,9 @@ def postprocess_svg(
 
     main_group = find_main_group(root)
     if main_group is None:
-        return svg_content
+        return etree.tostring(root, encoding="UTF-8", xml_declaration=True).decode(
+            "UTF-8"
+        )
 
     coords = extract_nucleotide_coords(root)
 
@@ -650,8 +652,17 @@ def main() -> None:
             svg_content, data["strands"], interactions, missing_res_numbers
         )
 
-        with open("output.svg", "w", encoding="utf-8") as f:
+        with open("raw.svg", "w", encoding="utf-8") as f:
             f.write(postprocessed)
+
+        # Crop SVG to actual drawing area using inkscape
+        inkscape_cmd = [
+            "inkscape",
+            "raw.svg",
+            "--export-area-drawing",
+            "--export-filename=output.svg",
+        ]
+        subprocess.run(inkscape_cmd, capture_output=True, text=True, check=True)
 
         svgcleaner_cmd = ["svgcleaner", "output.svg", "clean.svg"]
         subprocess.run(svgcleaner_cmd, capture_output=True, text=True, check=True)

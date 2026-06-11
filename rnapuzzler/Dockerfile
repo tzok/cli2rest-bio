@@ -8,10 +8,11 @@ ARG VIENNARNA_DEBIAN_RELEASE=debian_13
 ADD https://www.tbi.univie.ac.at/RNA/download/debian/${VIENNARNA_DEBIAN_RELEASE}/viennarna_${VIENNARNA_VERSION}_amd64.deb /tmp/viennarna.deb
 
 RUN apt-get update -y \
- && apt-get install -y --no-install-recommends \
-      python3-lxml \
- && apt-get install -y --no-install-recommends /tmp/viennarna.deb \
- && rm -rf /var/lib/apt/lists/* /tmp/viennarna.deb
+    && apt-get install -y --no-install-recommends \
+        inkscape \
+        python3-lxml \
+    && apt-get install -y --no-install-recommends /tmp/viennarna.deb \
+    && rm -rf /var/lib/apt/lists/* /tmp/viennarna.deb
 
 ARG SVGCLEANER_VERSION=0.9.5
 
