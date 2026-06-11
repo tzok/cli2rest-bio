@@ -84,8 +84,8 @@ jobs:
               python3-rna \
               vienna-rna \
               > /dev/null
-            VIENNA_VER=$(dpkg-query -W -f='${Version}' vienna-rna)
-            PYTHON_RNA_VER=$(dpkg-query -W -f='${Version}' python3-rna)
+            VIENNA_VER=$(dpkg-query -W -f=\${Version} vienna-rna)
+            PYTHON_RNA_VER=$(dpkg-query -W -f=\${Version} python3-rna)
             printf "VIENNA_VERSION=%s\nPYTHON_RNA_VERSION=%s\n" "$VIENNA_VER" "$PYTHON_RNA_VER"
           ')
 
