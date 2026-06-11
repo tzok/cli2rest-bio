@@ -6,7 +6,7 @@ RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       python3-lxml \
       python3-rna \
-      viennarna \
+      vienna-rna \
  && rm -rf /var/lib/apt/lists/*
 
 ARG SVGCLEANER_VERSION=0.9.5
