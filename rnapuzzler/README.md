@@ -8,6 +8,8 @@ RNApuzzler is a layout algorithm for RNA secondary structure visualization, avai
 
 The wrapper accepts a JSON input describing RNA strands with extended dot-bracket notation and optional non-canonical interactions, generates an SVG with the `RNAplot` CLI using the RNApuzzler layout, and post-processes it (colored interaction lines, missing residue markers, strand boundary gaps, CSS cleanup). The final SVG is optimized with `svgcleaner`.
 
+The container installs ViennaRNA from the official prebuilt Debian packages published by the ViennaRNA project.
+
 ## Configuration (`config.yaml`)
 
 ```yaml

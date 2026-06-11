@@ -71,40 +71,17 @@ jobs:
           echo "digest_short=${BASE_DIGEST_SHORT:0:12}" >> "$GITHUB_OUTPUT"
         shell: bash
 
-      - name: Resolve ViennaRNA version
+      - name: Set ViennaRNA version
         id: get_viennarna
         run: |
-          set -euo pipefail
-
-          VERSIONS=$(docker run --rm --user root "${{ steps.get_base.outputs.ref }}" bash -c '
-            set -e
-            . /etc/os-release
-            echo "deb http://deb.debian.org/debian trixie main" > /etc/apt/sources.list.d/trixie.list
-            printf "Package: *\nPin: release n=%s\nPin-Priority: 900\n\nPackage: vienna-rna\nPin: release n=trixie\nPin-Priority: 950\n" "$VERSION_CODENAME" > /etc/apt/preferences.d/vienna-rna
-            apt-get update -qq > /dev/null
-            apt-get install -y -qq --no-install-recommends \
-              vienna-rna \
-              > /dev/null
-            VIENNA_VER=$(dpkg-query -W -f=\${Version} vienna-rna)
-            printf "VIENNA_VERSION=%s\n" "$VIENNA_VER"
-          ')
-
-          echo "$VERSIONS"
-
-          VIENNA_VERSION=$(echo "$VERSIONS" | grep "^VIENNA_VERSION=" | cut -d= -f2)
-
-          if [ -z "$VIENNA_VERSION" ]; then
-            echo "Error: Could not determine ViennaRNA version from base image."
-            exit 1
-          fi
-
-          echo "vienna_version=$VIENNA_VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=2.7.2-1" >> "$GITHUB_OUTPUT"
+          echo "debian_release=debian_13" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Compute upstream version
         id: get_version
         run: |
-          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_vienna-${{ steps.get_viennarna.outputs.vienna_version }}_svgcleaner-${{ steps.get_svgcleaner_version.outputs.version }}" >> "$GITHUB_OUTPUT"
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_vienna-${{ steps.get_viennarna.outputs.version }}_svgcleaner-${{ steps.get_svgcleaner_version.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Decide whether to rebuild
         id: decide
@@ -168,6 +145,8 @@ jobs:
           context: ./rnapuzzler
           build-args: |
             CLI2REST_BASE=${{ steps.get_base.outputs.ref }}
+            VIENNARNA_VERSION=${{ steps.get_viennarna.outputs.version }}
+            VIENNARNA_DEBIAN_RELEASE=${{ steps.get_viennarna.outputs.debian_release }}
             SVGCLEANER_VERSION=${{ steps.get_svgcleaner_version.outputs.version }}
           pull: true
           push: ${{ github.event_name != 'pull_request' }}

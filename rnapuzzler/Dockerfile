@@ -2,14 +2,16 @@ ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
 
 FROM ${CLI2REST_BASE}
 
-RUN . /etc/os-release \
- && echo "deb http://deb.debian.org/debian trixie main" > /etc/apt/sources.list.d/trixie.list \
- && printf 'Package: *\nPin: release n=%s\nPin-Priority: 900\n\nPackage: vienna-rna\nPin: release n=trixie\nPin-Priority: 950\n' "$VERSION_CODENAME" > /etc/apt/preferences.d/vienna-rna \
- && apt-get update -y \
+ARG VIENNARNA_VERSION=2.7.2-1
+ARG VIENNARNA_DEBIAN_RELEASE=debian_13
+
+ADD https://www.tbi.univie.ac.at/RNA/download/debian/${VIENNARNA_DEBIAN_RELEASE}/viennarna_${VIENNARNA_VERSION}_amd64.deb /tmp/viennarna.deb
+
+RUN apt-get update -y \
  && apt-get install -y --no-install-recommends \
       python3-lxml \
-      vienna-rna \
- && rm -rf /var/lib/apt/lists/*
+ && apt-get install -y --no-install-recommends /tmp/viennarna.deb \
+ && rm -rf /var/lib/apt/lists/* /tmp/viennarna.deb
 
 ARG SVGCLEANER_VERSION=0.9.5
 
