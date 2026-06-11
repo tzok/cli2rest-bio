@@ -83,10 +83,7 @@ jobs:
             apt-get update -qq > /dev/null
             VIENNA_VER=$(apt-cache show viennarna 2>/dev/null | grep "^Version:" | head -1 | cut -d" " -f2)
             PYTHON_RNA_VER=$(apt-cache show python3-rna 2>/dev/null | grep "^Version:" | head -1 | cut -d" " -f2)
-            cat <<END
-VIENNA_VERSION=${VIENNA_VER}
-PYTHON_RNA_VERSION=${PYTHON_RNA_VER}
-END
+            printf "VIENNA_VERSION=%s\nPYTHON_RNA_VERSION=%s\n" "$VIENNA_VER" "$PYTHON_RNA_VER"
           ')
 
           echo "$VERSIONS"
