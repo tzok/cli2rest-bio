@@ -1,0 +1,8 @@
+name: "rnapuzzler"
+docker_image: "ghcr.io/tzok/cli2rest-rnapuzzler:latest"
+arguments:
+  - "wrapper.py"
+  - "input.json"
+input_file: "input.json"
+output_files:
+  - "clean.svg"

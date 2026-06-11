@@ -480,6 +480,40 @@ test_rnapolis() {
   stop_and_rm "$cname"
 }
 
+test_rnapuzzler() {
+  local tag="$1"
+  local image="ghcr.io/tzok/cli2rest-rnapuzzler:${tag}"
+  local cname="cli2rest-rnapuzzler-manual-${RANDOM}${RANDOM}"
+
+  pull_image "$image"
+  local host_port
+  host_port="$(start_service "$cname" "$image")"
+  wait_healthy "$host_port"
+
+  cat > example.json <<'EOF'
+{
+  "strands": [
+    {
+      "name": "A",
+      "sequence": "GCGGAUUUALCUCAGUUGG",
+      "structure": "((((...))))........"
+    }
+  ],
+  "interactions": [
+    {"i": 1, "j": 10, "lw": "cWW"}
+  ]
+}
+EOF
+
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+    "$ROOT_DIR/src/cli2rest_bio/configs/rnapuzzler/config.yaml" example.json
+  assert_completed metadata.json
+  assert_files_exist rnapuzzler-example-clean.svg
+
+  echo "Test passed: rnapuzzler" >&2
+  stop_and_rm "$cname"
+}
+
 # --- Run suite ---
 
 run_tool_test "reduce" "$TAG" test_reduce
@@ -501,6 +535,7 @@ run_tool_test "varna-tz" "$TAG" test_varna_tz
 run_tool_test "bpnet" "$TAG" test_bpnet
 run_tool_test "barnaba" "$TAG" test_barnaba
 run_tool_test "rnapolis" "$TAG" test_rnapolis
+run_tool_test "rnapuzzler" "$TAG" test_rnapuzzler
 
 echo "All tests passed." >&2
 if [[ "$KEEP" -eq 1 ]]; then
