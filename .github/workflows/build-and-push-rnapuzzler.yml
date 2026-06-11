@@ -1,0 +1,241 @@
+name: Build and Push cli2rest-rnapuzzler image
+
+on:
+  schedule:
+    # Weekly refresh (staleness window is 7 days)
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: '3.13'
+          enable-cache: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest svgcleaner tag
+        id: get_svgcleaner_version
+        run: |
+          LATEST_TAG_WITH_V=$(git ls-remote --tags --sort="v:refname" https://github.com/RazrFalcon/svgcleaner.git 'v*' | tail -n1 | sed 's/.*\///; s/\^{}//')
+          LATEST_TAG=${LATEST_TAG_WITH_V#v}
+          echo "Latest svgcleaner tag (with v): $LATEST_TAG_WITH_V"
+          echo "Latest svgcleaner tag (without v): $LATEST_TAG"
+          echo "version=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Install registry tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends skopeo jq
+
+      - name: Resolve cli2rest base image
+        id: get_base
+        run: |
+          set -euo pipefail
+
+          BASE_IMAGE="ghcr.io/tzok/cli2rest:latest"
+          BASE_JSON=$(skopeo inspect --override-os linux --override-arch amd64 "docker://$BASE_IMAGE")
+          BASE_DIGEST=$(echo "$BASE_JSON" | jq -r '.Digest')
+          BASE_REF="${BASE_IMAGE%@*}@${BASE_DIGEST}"
+          BASE_DIGEST_SHORT="${BASE_DIGEST#sha256:}"
+
+          echo "ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+          echo "digest_short=${BASE_DIGEST_SHORT:0:12}" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Resolve ViennaRNA version
+        id: get_viennarna
+        run: |
+          set -euo pipefail
+
+          VERSIONS=$(docker run --rm --user root "${{ steps.get_base.outputs.ref }}" bash -c '
+            set -e
+            apt-get update -qq > /dev/null
+            apt-get install -y -qq --no-install-recommends apt-cache > /dev/null 2>&1 || true
+            apt-get update -qq > /dev/null
+            VIENNA_VER=$(apt-cache show viennarna 2>/dev/null | grep "^Version:" | head -1 | cut -d" " -f2)
+            PYTHON_RNA_VER=$(apt-cache show python3-rna 2>/dev/null | grep "^Version:" | head -1 | cut -d" " -f2)
+            cat <<END
+VIENNA_VERSION=${VIENNA_VER}
+PYTHON_RNA_VERSION=${PYTHON_RNA_VER}
+END
+          ')
+
+          echo "$VERSIONS"
+
+          VIENNA_VERSION=$(echo "$VERSIONS" | grep "^VIENNA_VERSION=" | cut -d= -f2)
+          PYTHON_RNA_VERSION=$(echo "$VERSIONS" | grep "^PYTHON_RNA_VERSION=" | cut -d= -f2)
+
+          if [ -z "$VIENNA_VERSION" ] || [ -z "$PYTHON_RNA_VERSION" ]; then
+            echo "Error: Could not determine ViennaRNA/python3-rna versions from base image."
+            exit 1
+          fi
+
+          echo "vienna_version=$VIENNA_VERSION" >> "$GITHUB_OUTPUT"
+          echo "python_rna_version=$PYTHON_RNA_VERSION" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Compute upstream version
+        id: get_version
+        run: |
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_vienna-${{ steps.get_viennarna.outputs.vienna_version }}_svgcleaner-${{ steps.get_svgcleaner_version.outputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether to rebuild
+        id: decide
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+
+          IMAGE="ghcr.io/tzok/cli2rest-rnapuzzler"
+          UPSTREAM="${{ steps.get_version.outputs.upstream }}"
+          VERSION_REF="$IMAGE:$UPSTREAM"
+          LATEST_REF="$IMAGE:latest"
+
+          STALE_SECONDS=$((7*24*60*60))
+          NOW_EPOCH="$(date -u +%s)"
+          REBUILD_SUFFIX="r$(date -u +%Y%m%d%H%M%S)"
+
+          should_build=false
+          build_tag=""
+          should_promote=false
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            should_build=true
+            build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
+          elif ! docker manifest inspect "$VERSION_REF" >/dev/null 2>&1; then
+            should_build=true
+            build_tag="$UPSTREAM"
+          else
+            if docker manifest inspect "$LATEST_REF" >/dev/null 2>&1; then
+              latest_json="$(skopeo inspect "docker://$LATEST_REF")"
+              latest_upstream="$(echo "$latest_json" | jq -r '.Labels["org.cli2rest.upstream"] // ""')"
+              latest_created="$(echo "$latest_json" | jq -r '.Created // ""')"
+
+              if [[ -n "$latest_created" ]]; then
+                created_epoch="$(date -u -d "$latest_created" +%s || echo 0)"
+                age=$((NOW_EPOCH - created_epoch))
+                if [[ "$age" -ge "$STALE_SECONDS" ]]; then
+                  should_build=true
+                  build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
+                elif [[ "$latest_upstream" != "$UPSTREAM" ]]; then
+                  should_promote=true
+                fi
+              else
+                should_build=true
+                build_tag="${UPSTREAM}-${REBUILD_SUFFIX}"
+              fi
+            else
+              should_promote=true
+            fi
+          fi
+
+          echo "should_build=$should_build" >> "$GITHUB_OUTPUT"
+          echo "build_tag=$build_tag" >> "$GITHUB_OUTPUT"
+          echo "should_promote=$should_promote" >> "$GITHUB_OUTPUT"
+          echo "upstream=$UPSTREAM" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Build and Push Docker image
+        if: github.event_name == 'pull_request' || steps.decide.outputs.should_build == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: ./rnapuzzler
+          build-args: |
+            CLI2REST_BASE=${{ steps.get_base.outputs.ref }}
+            SVGCLEANER_VERSION=${{ steps.get_svgcleaner_version.outputs.version }}
+          pull: true
+          push: ${{ github.event_name != 'pull_request' }}
+          load: true
+          labels: |
+            org.cli2rest.upstream=${{ steps.get_version.outputs.upstream }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          tags: |
+            ${{ github.event_name == 'pull_request' && 'ghcr.io/tzok/cli2rest-rnapuzzler:test' || '' }}
+            ${{ github.event_name != 'pull_request' && format('ghcr.io/tzok/cli2rest-rnapuzzler:{0}', steps.decide.outputs.build_tag) || '' }}
+            ${{ github.event_name != 'pull_request' && 'ghcr.io/tzok/cli2rest-rnapuzzler:latest' || '' }}
+          cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-rnapuzzler:latest
+          cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        if: github.event_name == 'pull_request' || steps.decide.outputs.should_build == 'true'
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            TEST_IMAGE="ghcr.io/tzok/cli2rest-rnapuzzler:test"
+          else
+            TEST_IMAGE="ghcr.io/tzok/cli2rest-rnapuzzler:${{ steps.decide.outputs.build_tag }}"
+          fi
+
+          docker run --name cli2rest-rnapuzzler-test -d -p 8000 "$TEST_IMAGE"
+          sleep 5
+          HOST_PORT=$(docker port cli2rest-rnapuzzler-test 8000 | cut -d: -f2)
+          curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
+
+          uv sync --locked
+          cat > example.json << 'EOF'
+          {
+            "strands": [
+              {
+                "name": "A",
+                "sequence": "GCGGAUUUALCUCAGUUGG",
+                "structure": "((((...))))........"
+              }
+            ],
+            "interactions": [
+              {"i": 1, "j": 10, "lw": "cWW"}
+            ]
+          }
+          EOF
+
+          uv run --locked cli2rest-bio --api-url "http://localhost:$HOST_PORT" --output-metadata metadata.json src/cli2rest_bio/configs/rnapuzzler/config.yaml example.json
+          if [ "$(jq -r .status metadata.json)" != "COMPLETED" ]; then
+            echo "Test failed: Job status is not COMPLETED"
+            cat metadata.json
+            exit 1
+          fi
+
+          if [ ! -f "rnapuzzler-example-clean.svg" ]; then
+            echo "Test failed: Output file rnapuzzler-example-clean.svg is missing."
+            ls -l
+            exit 1
+          fi
+
+          echo "Test passed: All output files created."
+
+          docker rm -f cli2rest-rnapuzzler-test
+
+      - name: Promote latest to current upstream
+        if: github.event_name != 'pull_request' && steps.decide.outputs.should_build != 'true' && steps.decide.outputs.should_promote == 'true'
+        run: |
+          IMAGE="ghcr.io/tzok/cli2rest-rnapuzzler"
+          UPSTREAM="${{ steps.decide.outputs.upstream }}"
+
+          echo "Promoting $IMAGE:$UPSTREAM -> $IMAGE:latest"
+          docker buildx imagetools create -t "$IMAGE:latest" "$IMAGE:$UPSTREAM"
