@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -60,12 +61,12 @@ COLORS: Dict[str, str] = {
     "e": "0.624 0.725 0.145",
     "NOT_REPRESENTED": "0.5 0.5 0.5",
     "-": "1 0 0",
-    "BASE_PAIR": "0 0 0",
 }
 
 SVG_NS = "http://www.w3.org/2000/svg"
 OUTPUT_SVG = "rna.svg"
 MAX_STRUCTURE_LENGTH = 32767
+LABEL_RADIUS = 9.0
 
 
 class StrandInput(TypedDict):
@@ -91,6 +92,9 @@ class PuzzlerInteraction:
     number_left: int
     number_right: int
     color: str
+    stroke_width: str = "1.5"
+    dasharray: Optional[str] = None
+    dashoffset: Optional[str] = None
 
 
 def color_to_svg(color_str: str) -> str:
@@ -167,7 +171,8 @@ def preprocess(
     sequence = "".join(s["sequence"] for s in data["strands"])
     structure_raw = "".join(s["structure"] for s in data["strands"])
 
-    interactions: List[PuzzlerInteraction] = []
+    canonical_interactions: List[PuzzlerInteraction] = []
+    custom_interactions: List[PuzzlerInteraction] = []
     missing_res_numbers: List[int] = []
     modified_structure_chars: List[str] = []
     residue_stack: DefaultDict[str, Deque[int]] = defaultdict(deque)
@@ -178,6 +183,21 @@ def preprocess(
             raise ValueError(f"Unknown structure symbol '{char}' at position {i + 1}")
         if symbol.allowed:
             modified_structure_chars.append(char)
+            if char == "(":
+                residue_stack[char].append(i + 1)
+            elif char == ")":
+                if not residue_stack[symbol.sibling]:  # type: ignore[arg-type]
+                    raise ValueError(
+                        f"Unmatched closing symbol '{char}' at position {i + 1}"
+                    )
+                canonical_interactions.append(
+                    PuzzlerInteraction(
+                        residue_stack[symbol.sibling].pop(),  # type: ignore[arg-type]
+                        i + 1,
+                        "rgb(0,0,0)",
+                        stroke_width="2",
+                    )
+                )
         else:
             modified_structure_chars.append(".")
             if char == "-":
@@ -190,7 +210,7 @@ def preprocess(
                         raise ValueError(
                             f"Unmatched closing symbol '{char}' at position {i + 1}"
                         )
-                    interactions.append(
+                    custom_interactions.append(
                         PuzzlerInteraction(
                             residue_stack[symbol.sibling].pop(),  # type: ignore
                             i + 1,
@@ -200,29 +220,34 @@ def preprocess(
 
     modified_structure = "".join(modified_structure_chars)
 
-    structure_copy = modified_structure
-    modified_structure = modified_structure.replace("()", "..")
-
-    for idx, (old, new) in enumerate(zip(structure_copy, modified_structure)):
-        if old != new and old == "(":
-            interactions.append(
-                PuzzlerInteraction(
-                    idx + 1,
-                    idx + 2,
-                    COLORS["BASE_PAIR"],
-                )
-            )
-
     extra_interactions = data.get("interactions")
     if extra_interactions:
         for interaction in extra_interactions:
-            interactions.append(
+            color = interaction.get("color") or COLORS["NOT_REPRESENTED"]
+            custom_interactions.append(
                 PuzzlerInteraction(
                     interaction["i"],
                     interaction["j"],
-                    interaction.get("color") or COLORS["NOT_REPRESENTED"],
+                    color,
+                    dasharray=None if interaction.get("color") else "3 6",
                 )
             )
+
+    for symbol, stack in residue_stack.items():
+        if stack:
+            raise ValueError(f"Unmatched opening symbol '{symbol}' in structure")
+
+    custom_pairs = {
+        tuple(sorted((interaction.number_left, interaction.number_right)))
+        for interaction in custom_interactions
+    }
+    interactions = [
+        interaction
+        for interaction in canonical_interactions
+        if tuple(sorted((interaction.number_left, interaction.number_right)))
+        not in custom_pairs
+    ]
+    interactions.extend(custom_interactions)
 
     return sequence, modified_structure, interactions, missing_res_numbers
 
@@ -333,6 +358,8 @@ def update_css_styles(root: etree._Element) -> None:
 
     css = style_elem.text or ""
     css = css.replace("stroke: grey", "stroke: rgb(191,191,191)")
+    # Make backbone polylines slightly thicker
+    css = css.replace("fill: none;", "fill: none; stroke-width: 2;")
     css = css.replace("stroke: red", "stroke: black")
     style_elem.text = css
 
@@ -342,6 +369,41 @@ def center_nucleotide_labels(seq_group: etree._Element) -> None:
         del seq_group.attrib["transform"]
     seq_group.set("text-anchor", "middle")
     seq_group.set("dominant-baseline", "central")
+    seq_group.set("fill", "#444")
+
+
+def shorten_line(
+    x1: float, y1: float, x2: float, y2: float, padding: float = LABEL_RADIUS
+) -> Tuple[float, float, float, float]:
+    dx = x2 - x1
+    dy = y2 - y1
+    length = math.hypot(dx, dy)
+    if length == 0:
+        return x1, y1, x2, y2
+
+    shrink = min(padding, max((length / 2) - 0.1, 0))
+    ux = dx / length
+    uy = dy / length
+    return (
+        x1 + (ux * shrink),
+        y1 + (uy * shrink),
+        x2 - (ux * shrink),
+        y2 - (uy * shrink),
+    )
+
+
+def class_tokens(element: etree._Element) -> set[str]:
+    return set((element.get("class") or "").split())
+
+
+def remove_rnaplot_base_pair_graphics(main_group: etree._Element) -> None:
+    candidates = list(main_group.iterdescendants())
+    for element in candidates:
+        if "basepairs" not in class_tokens(element):
+            continue
+        parent = element.getparent()
+        if parent is not None:
+            parent.remove(element)
 
 
 def add_interaction_lines(
@@ -369,6 +431,7 @@ def add_interaction_lines(
 
         x1, y1 = coords[idx_left]
         x2, y2 = coords[idx_right]
+        x1, y1, x2, y2 = shorten_line(x1, y1, x2, y2)
         svg_color = color_to_svg(interaction.color)
 
         line_attrib: Dict[str, str] = {
@@ -378,17 +441,13 @@ def add_interaction_lines(
             "y2": f"{y2:.3f}",
             "stroke": svg_color,
             "fill": "none",
+            "stroke-width": interaction.stroke_width,
         }
 
-        if interaction.color == COLORS["NOT_REPRESENTED"]:
-            line_attrib["stroke-width"] = "1.5"
-            line_attrib["stroke-dasharray"] = "3 6"
-        elif interaction.color == COLORS["BASE_PAIR"]:
-            line_attrib["stroke-width"] = "1"
-            line_attrib["stroke-dasharray"] = "9 3.01"
-            line_attrib["stroke-dashoffset"] = "9"
-        else:
-            line_attrib["stroke-width"] = "1.5"
+        if interaction.dasharray:
+            line_attrib["stroke-dasharray"] = interaction.dasharray
+        if interaction.dashoffset:
+            line_attrib["stroke-dashoffset"] = interaction.dashoffset
 
         etree.SubElement(interactions_group, f"{{{SVG_NS}}}line", attrib=line_attrib)
 
@@ -529,13 +588,15 @@ def remove_scripts(root: etree._Element) -> None:
             parent.remove(script)
 
 
-def remove_background_rect_onclick(root: etree._Element) -> None:
-    for rect in root.iter(f"{{{SVG_NS}}}rect"):
-        if rect.get("onclick"):
-            del rect.attrib["onclick"]
-    for rect in root.iter("rect"):
-        if rect.get("onclick"):
-            del rect.attrib["onclick"]
+def remove_background_rectangles(root: etree._Element) -> None:
+    for rect in list(root.findall(f".//{{{SVG_NS}}}rect")):
+        parent = rect.getparent()
+        if parent is not None:
+            parent.remove(rect)
+    for rect in list(root.findall(".//rect")):
+        parent = rect.getparent()
+        if parent is not None:
+            parent.remove(rect)
 
 
 def postprocess_svg(
@@ -559,6 +620,7 @@ def postprocess_svg(
     if seq_group is not None:
         center_nucleotide_labels(seq_group)
 
+    remove_rnaplot_base_pair_graphics(main_group)
     split_backbone_at_strand_boundaries(main_group, strands)
 
     if seq_group is not None and coords:
@@ -566,7 +628,7 @@ def postprocess_svg(
         add_interaction_lines(main_group, seq_group, coords, interactions)
 
     remove_scripts(root)
-    remove_background_rect_onclick(root)
+    remove_background_rectangles(root)
 
     return etree.tostring(root, encoding="UTF-8", xml_declaration=True).decode("UTF-8")
 
