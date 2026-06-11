@@ -78,9 +78,11 @@ jobs:
 
           VERSIONS=$(docker run --rm --user root "${{ steps.get_base.outputs.ref }}" bash -c '
             set -e
+            . /etc/os-release
+            echo "deb http://deb.debian.org/debian trixie main" > /etc/apt/sources.list.d/trixie.list
+            printf "Package: *\nPin: release n=%s\nPin-Priority: 900\n\nPackage: vienna-rna\nPin: release n=trixie\nPin-Priority: 950\n" "$VERSION_CODENAME" > /etc/apt/preferences.d/vienna-rna
             apt-get update -qq > /dev/null
             apt-get install -y -qq --no-install-recommends \
-              python3-lxml \
               vienna-rna \
               > /dev/null
             VIENNA_VER=$(dpkg-query -W -f=\${Version} vienna-rna)

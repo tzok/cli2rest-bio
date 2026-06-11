@@ -2,7 +2,10 @@ ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
 
 FROM ${CLI2REST_BASE}
 
-RUN apt-get update -y \
+RUN . /etc/os-release \
+ && echo "deb http://deb.debian.org/debian trixie main" > /etc/apt/sources.list.d/trixie.list \
+ && printf 'Package: *\nPin: release n=%s\nPin-Priority: 900\n\nPackage: vienna-rna\nPin: release n=trixie\nPin-Priority: 950\n' "$VERSION_CODENAME" > /etc/apt/preferences.d/vienna-rna \
+ && apt-get update -y \
  && apt-get install -y --no-install-recommends \
       python3-lxml \
       vienna-rna \
