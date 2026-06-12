@@ -85,6 +85,7 @@ class InteractionInput(TypedDict):
 class PuzzlerInput(TypedDict):
     strands: List[StrandInput]
     interactions: Optional[List[InteractionInput]]
+    nucleotide_colors: Optional[Dict[str, str]]
 
 
 @dataclass(frozen=True)
@@ -364,12 +365,31 @@ def update_css_styles(root: etree._Element) -> None:
     style_elem.text = css
 
 
-def center_nucleotide_labels(seq_group: etree._Element) -> None:
+def center_nucleotide_labels(
+    seq_group: etree._Element,
+    nucleotide_colors: Optional[Dict[str, str]] = None,
+) -> None:
     if seq_group.get("transform"):
         del seq_group.attrib["transform"]
     seq_group.set("text-anchor", "middle")
     seq_group.set("dominant-baseline", "central")
     seq_group.set("fill", "#444")
+
+    if nucleotide_colors:
+        for i, text_elem in enumerate(seq_group.findall(f"{{{SVG_NS}}}text")):
+            pos = str(i + 1)
+            if pos in nucleotide_colors:
+                svg_color = color_to_svg(nucleotide_colors[pos])
+                text_elem.set("fill", svg_color)
+                text_elem.set("stroke", "none")
+                text_elem.set("stroke-width", "0")
+        for i, text_elem in enumerate(seq_group.findall("text")):
+            pos = str(i + 1)
+            if pos in nucleotide_colors:
+                svg_color = color_to_svg(nucleotide_colors[pos])
+                text_elem.set("fill", svg_color)
+                text_elem.set("stroke", "none")
+                text_elem.set("stroke-width", "0")
 
 
 def shorten_line(
@@ -604,6 +624,7 @@ def postprocess_svg(
     strands: List[StrandInput],
     interactions: List[PuzzlerInteraction],
     missing_res_numbers: List[int],
+    nucleotide_colors: Optional[Dict[str, str]] = None,
 ) -> str:
     root = etree.fromstring(svg_content.encode("utf-8"))
 
@@ -620,7 +641,7 @@ def postprocess_svg(
     seq_group = find_seq_group(main_group)
 
     if seq_group is not None:
-        center_nucleotide_labels(seq_group)
+        center_nucleotide_labels(seq_group, nucleotide_colors)
 
     remove_rnaplot_base_pair_graphics(main_group)
     split_backbone_at_strand_boundaries(main_group, strands)
@@ -648,8 +669,9 @@ def main() -> None:
         data = load_and_validate_json(args.json_file)
         sequence, structure, interactions, missing_res_numbers = preprocess(data)
         svg_content = generate_rnapuzzler_svg(sequence, structure)
+        nucleotide_colors = data.get("nucleotide_colors")
         postprocessed = postprocess_svg(
-            svg_content, data["strands"], interactions, missing_res_numbers
+            svg_content, data["strands"], interactions, missing_res_numbers, nucleotide_colors
         )
 
         with open("raw.svg", "w", encoding="utf-8") as f:
