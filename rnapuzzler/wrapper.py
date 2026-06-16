@@ -3,13 +3,14 @@ import argparse
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
 from tempfile import TemporaryDirectory
-from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, TypedDict
+from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, TypedDict, Union
 
 from lxml import etree
 
@@ -63,10 +64,38 @@ COLORS: Dict[str, str] = {
     "-": "1 0 0",
 }
 
+CSS_COLOR_NAMES: Dict[str, str] = {
+    "black": "#000000",
+    "blue": "#0000ff",
+    "cyan": "#00ffff",
+    "gray": "#808080",
+    "green": "#008000",
+    "grey": "#808080",
+    "magenta": "#ff00ff",
+    "orange": "#ffa500",
+    "purple": "#800080",
+    "red": "#ff0000",
+    "white": "#ffffff",
+    "yellow": "#ffff00",
+}
+
 SVG_NS = "http://www.w3.org/2000/svg"
 OUTPUT_SVG = "rna.svg"
 MAX_STRUCTURE_LENGTH = 32767
 LABEL_RADIUS = 9.0
+SYMBOL_RADIUS = LABEL_RADIUS * 0.75
+INNER_SCALE = 0.45
+CANONICAL_BP_COLOR = "rgb(191,191,191)"
+
+LW_EDGE_MAP = {"W": "W", "H": "H", "S": "S"}
+BP_STYLES = {"simple", "lw", "lw_alt"}
+STACKING_PLACEMENTS = {
+    "centered",
+    "first-partner",
+    "second-partner",
+    "both-partners",
+    "opposing-partners",
+}
 
 
 class StrandInput(TypedDict):
@@ -80,12 +109,24 @@ class InteractionInput(TypedDict):
     j: int
     lw: Optional[str]
     color: Optional[str]
+    style: Optional[str]
+
+
+class StackingInput(TypedDict):
+    i: int
+    j: int
+    color: Optional[str]
+    thickness: Optional[Union[int, float, str]]
 
 
 class PuzzlerInput(TypedDict):
     strands: List[StrandInput]
     interactions: Optional[List[InteractionInput]]
+    stackings: Optional[List[StackingInput]]
     nucleotide_colors: Optional[Dict[str, str]]
+    bp_style: Optional[str]
+    stacking_arrow_placement: Optional[str]
+    stacking_arrow_gap: Optional[float]
 
 
 @dataclass(frozen=True)
@@ -93,15 +134,34 @@ class PuzzlerInteraction:
     number_left: int
     number_right: int
     color: str
-    stroke_width: str = "2.5"
+    stroke_width: str = "2"
     dasharray: Optional[str] = None
     dashoffset: Optional[str] = None
+    lw: Optional[str] = None
+    edge5: Optional[str] = None
+    edge3: Optional[str] = None
+    cis: bool = True
+    style: str = "lw"
+    is_canonical: bool = False
+
+
+@dataclass(frozen=True)
+class PuzzlerStacking:
+    number_left: int
+    number_right: int
+    color: str
+    stroke_width: str = "2.5"
+    arrow_placement: str = "centered"
+    arrow_gap: Optional[float] = None
 
 
 def color_to_svg(color_str: str) -> str:
     color_str = color_str.strip()
     if not color_str:
         return "rgb(128,128,128)"
+    lower = color_str.lower()
+    if lower in CSS_COLOR_NAMES:
+        return CSS_COLOR_NAMES[lower]
     if color_str.startswith("#"):
         return color_str
     if color_str.startswith("rgb("):
@@ -117,6 +177,24 @@ def color_to_svg(color_str: str) -> str:
     g = int(round(float(parts[1]) * 255))
     b = int(round(float(parts[2]) * 255))
     return f"rgb({r},{g},{b})"
+
+
+def parse_lw(lw: str) -> Optional[Tuple[bool, str, str]]:
+    """Parse a Leontis–Westhof string (e.g. 'cWW', 'tWH') into (cis, edge5, edge3)."""
+    if not lw or len(lw) != 3:
+        return None
+    s = lw.upper()
+    if s[0] == "C":
+        cis = True
+    elif s[0] == "T":
+        cis = False
+    else:
+        return None
+    edge5 = LW_EDGE_MAP.get(s[1])
+    edge3 = LW_EDGE_MAP.get(s[2])
+    if edge5 is None or edge3 is None:
+        return None
+    return cis, edge5, edge3
 
 
 def load_and_validate_json(file_path: str) -> PuzzlerInput:
@@ -163,17 +241,51 @@ def load_and_validate_json(file_path: str) -> PuzzlerInput:
                         f"Interaction at index {idx} has non-positive '{field}': {interaction[field]}"
                     )
 
+    if "stackings" in data and data["stackings"] is not None:
+        if not isinstance(data["stackings"], list):
+            raise ValueError("'stackings' must be a list.")
+        for idx, stacking in enumerate(data["stackings"]):
+            if not isinstance(stacking, dict):
+                raise ValueError(f"Stacking at index {idx} must be an object.")
+            for field in ("i", "j"):
+                if field not in stacking or not isinstance(stacking[field], int):
+                    raise ValueError(
+                        f"Stacking at index {idx} missing or invalid '{field}'."
+                    )
+                if stacking[field] <= 0:
+                    raise ValueError(
+                        f"Stacking at index {idx} has non-positive '{field}': {stacking[field]}"
+                    )
+
+    if data.get("bp_style") is not None and data["bp_style"].lower() not in BP_STYLES:
+        raise ValueError(
+            f"Invalid bp_style '{data['bp_style']}'. Allowed: {sorted(BP_STYLES)}."
+        )
+
+    if data.get("stacking_arrow_placement") is not None:
+        placement = data["stacking_arrow_placement"].lower()
+        if placement not in STACKING_PLACEMENTS:
+            raise ValueError(
+                f"Invalid stacking_arrow_placement '{data['stacking_arrow_placement']}'. "
+                f"Allowed: {sorted(STACKING_PLACEMENTS)}."
+            )
+
     return data
 
 
 def preprocess(
     data: PuzzlerInput,
-) -> Tuple[str, str, List[PuzzlerInteraction], List[int]]:
+) -> Tuple[str, str, List[PuzzlerInteraction], List[PuzzlerStacking], List[int]]:
     sequence = "".join(s["sequence"] for s in data["strands"])
     structure_raw = "".join(s["structure"] for s in data["strands"])
 
+    bp_style = (data.get("bp_style") or "lw").lower()
+    if bp_style not in BP_STYLES:
+        bp_style = "lw"
+
     canonical_interactions: List[PuzzlerInteraction] = []
     custom_interactions: List[PuzzlerInteraction] = []
+    stackings: List[PuzzlerStacking] = []
     missing_res_numbers: List[int] = []
     modified_structure_chars: List[str] = []
     residue_stack: DefaultDict[str, Deque[int]] = defaultdict(deque)
@@ -196,7 +308,7 @@ def preprocess(
                         residue_stack[symbol.sibling].pop(),  # type: ignore[arg-type]
                         i + 1,
                         "rgb(0,0,0)",
-                        stroke_width="3",
+                        is_canonical=True,
                     )
                 )
         else:
@@ -216,6 +328,7 @@ def preprocess(
                             residue_stack[symbol.sibling].pop(),  # type: ignore
                             i + 1,
                             COLORS[char],
+                            style="simple",
                         )
                     )
 
@@ -225,12 +338,43 @@ def preprocess(
     if extra_interactions:
         for interaction in extra_interactions:
             color = interaction.get("color") or COLORS["NOT_REPRESENTED"]
+            style = (interaction.get("style") or bp_style).lower()
+            if style not in BP_STYLES:
+                style = bp_style
+            lw = interaction.get("lw")
+            parsed = parse_lw(lw) if lw else None
+            if parsed is None:
+                style = "simple"
             custom_interactions.append(
                 PuzzlerInteraction(
                     interaction["i"],
                     interaction["j"],
                     color,
-                    dasharray=None if interaction.get("color") else "3 6",
+                    lw=lw,
+                    edge5=parsed[1] if parsed else None,
+                    edge3=parsed[2] if parsed else None,
+                    cis=parsed[0] if parsed else True,
+                    style=style,
+                )
+            )
+
+    extra_stackings = data.get("stackings")
+    if extra_stackings:
+        placement = (data.get("stacking_arrow_placement") or "centered").lower()
+        if placement not in STACKING_PLACEMENTS:
+            placement = "centered"
+        gap = data.get("stacking_arrow_gap")
+        for stacking in extra_stackings:
+            color = stacking.get("color") or "0 0 1"
+            thickness = str(stacking.get("thickness", "2.5"))
+            stackings.append(
+                PuzzlerStacking(
+                    stacking["i"],
+                    stacking["j"],
+                    color,
+                    stroke_width=thickness,
+                    arrow_placement=placement,
+                    arrow_gap=gap,
                 )
             )
 
@@ -250,7 +394,7 @@ def preprocess(
     ]
     interactions.extend(custom_interactions)
 
-    return sequence, modified_structure, interactions, missing_res_numbers
+    return sequence, modified_structure, interactions, stackings, missing_res_numbers
 
 
 def generate_rnapuzzler_svg(sequence: str, structure: str) -> str:
@@ -335,6 +479,25 @@ def find_main_group(root: etree._Element) -> Optional[etree._Element]:
     return None
 
 
+def get_main_group_scale(main_group: Optional[etree._Element]) -> float:
+    """Return the average uniform scale factor applied by RNAplot's root <g>."""
+    if main_group is None:
+        return 1.0
+    transform = main_group.get("transform") or ""
+    match = re.search(r"scale\(([^)]+)\)", transform)
+    if not match:
+        return 1.0
+    parts = [p for p in re.split(r"[,\s]+", match.group(1).strip()) if p]
+    if not parts:
+        return 1.0
+    try:
+        sx = float(parts[0])
+        sy = float(parts[1]) if len(parts) > 1 else sx
+    except ValueError:
+        return 1.0
+    return (abs(sx) + abs(sy)) / 2.0
+
+
 def find_seq_group(main_group: etree._Element) -> Optional[etree._Element]:
     for child in main_group:
         tag = child.tag
@@ -412,6 +575,233 @@ def shorten_line(
     )
 
 
+def _points_to_svg(points: List[Tuple[float, float]]) -> str:
+    return " ".join(f"{x:.3f},{y:.3f}" for x, y in points)
+
+
+def _add_circle(
+    group: etree._Element,
+    cx: float,
+    cy: float,
+    radius: float,
+    fill: str,
+    stroke: str,
+    stroke_width: str,
+) -> None:
+    etree.SubElement(
+        group,
+        f"{{{SVG_NS}}}circle",
+        attrib={
+            "cx": f"{cx:.3f}",
+            "cy": f"{cy:.3f}",
+            "r": f"{radius:.3f}",
+            "fill": fill,
+            "stroke": stroke,
+            "stroke-width": stroke_width,
+        },
+    )
+
+
+def _add_polygon(
+    group: etree._Element,
+    points: List[Tuple[float, float]],
+    fill: str,
+    stroke: str,
+    stroke_width: str,
+) -> None:
+    etree.SubElement(
+        group,
+        f"{{{SVG_NS}}}polygon",
+        attrib={
+            "points": _points_to_svg(points),
+            "fill": fill,
+            "stroke": stroke,
+            "stroke-width": stroke_width,
+        },
+    )
+
+
+def _symbol_group(
+    parent: etree._Element, cx: float, cy: float, angle: float
+) -> etree._Element:
+    # Translate the shape to (cx,cy) and then rotate it around its own center.
+    return etree.SubElement(
+        parent,
+        f"{{{SVG_NS}}}g",
+        attrib={
+            "transform": f"translate({cx:.3f},{cy:.3f}) rotate({math.degrees(angle):.3f})"
+        },
+    )
+
+
+def _square_points(side: float) -> List[Tuple[float, float]]:
+    half = side / 2.0
+    return [(-half, -half), (half, -half), (half, half), (-half, half)]
+
+
+def _triangle_points(side: float) -> List[Tuple[float, float]]:
+    """Return an equilateral triangle centered at its centroid, apex along +x."""
+    height = (side * math.sqrt(3.0)) / 2.0
+    return [
+        (-height / 3.0, -side / 2.0),
+        (-height / 3.0, side / 2.0),
+        (2.0 * height / 3.0, 0.0),
+    ]
+
+
+def _draw_shape(
+    group: etree._Element,
+    cx: float,
+    cy: float,
+    angle: float,
+    edge: str,
+    radius: float,
+    fill: str,
+    stroke: str,
+    stroke_width: str,
+) -> None:
+    if edge == "W":
+        _add_circle(group, cx, cy, radius, fill, stroke, stroke_width)
+    elif edge == "H":
+        side = math.sqrt(math.pi) * radius
+        g = _symbol_group(group, cx, cy, angle)
+        _add_polygon(g, _square_points(side), fill, stroke, stroke_width)
+    elif edge == "S":
+        side = 2.0 * math.sqrt(math.pi / math.sqrt(3.0)) * radius
+        g = _symbol_group(group, cx, cy, angle)
+        _add_polygon(g, _triangle_points(side), fill, stroke, stroke_width)
+
+
+def _draw_single_symbol(
+    group: etree._Element,
+    cx: float,
+    cy: float,
+    angle: float,
+    edge: str,
+    radius: float,
+    cis: bool,
+    color: str,
+    stroke_width: str,
+) -> None:
+    fill = color if cis else "white"
+    _draw_shape(group, cx, cy, angle, edge, radius, fill, color, stroke_width)
+
+
+def _draw_lw_separate(
+    group: etree._Element,
+    cx: float,
+    cy: float,
+    ux: float,
+    uy: float,
+    edge5: str,
+    edge3: str,
+    cis: bool,
+    color: str,
+    stroke_width: str,
+    dist: float,
+    radius: float,
+) -> None:
+    # Place the two edge symbols on the bond, close to the midpoint.
+    # The offset is capped so they do not drift toward the nucleotides on
+    # long crossing interactions.
+    angle = math.atan2(uy, ux)
+    offset = min(radius * 1.6, max((dist / 2.0) - radius, 0.0))
+    _draw_single_symbol(
+        group,
+        cx - ux * offset,
+        cy - uy * offset,
+        angle,
+        edge5,
+        radius,
+        cis,
+        color,
+        stroke_width,
+    )
+    _draw_single_symbol(
+        group,
+        cx + ux * offset,
+        cy + uy * offset,
+        angle,
+        edge3,
+        radius,
+        cis,
+        color,
+        stroke_width,
+    )
+
+
+def _draw_lw_alternative(
+    group: etree._Element,
+    cx: float,
+    cy: float,
+    angle: float,
+    edge5: str,
+    edge3: str,
+    cis: bool,
+    color: str,
+    stroke_width: str,
+    radius: float,
+) -> None:
+    # Outer shape masks the bond line with a white fill + colored outline.
+    _draw_shape(group, cx, cy, angle, edge5, radius, "white", color, stroke_width)
+    # Inner shape encodes the 3' edge, drawn smaller and nested inside.
+    _draw_single_symbol(
+        group,
+        cx,
+        cy,
+        angle,
+        edge3,
+        radius * INNER_SCALE,
+        cis,
+        color,
+        stroke_width,
+    )
+
+
+def _draw_stacking_arrowhead(
+    group: etree._Element,
+    start: Tuple[float, float],
+    end: Tuple[float, float],
+    visual_center: Tuple[float, float],
+    arrow_len: float,
+    stroke_width: str,
+    color: str,
+    reverse: bool = False,
+) -> None:
+    sx, sy = start
+    ex, ey = end
+    if reverse:
+        sx, sy, ex, ey = ex, ey, sx, sy
+    seg_len = math.hypot(ex - sx, ey - sy)
+    if seg_len == 0.0:
+        return
+    ux = (ex - sx) / seg_len
+    uy = (ey - sy) / seg_len
+    head_depth = arrow_len * math.cos(math.radians(45.0))
+    ax = visual_center[0] + ux * (head_depth / 2.0)
+    ay = visual_center[1] + uy * (head_depth / 2.0)
+    main_angle = math.atan2(sy - ey, sx - ex)
+    angle1 = main_angle + math.radians(45.0)
+    angle2 = main_angle - math.radians(45.0)
+    p1x = ax + arrow_len * math.cos(angle1)
+    p1y = ay + arrow_len * math.sin(angle1)
+    p2x = ax + arrow_len * math.cos(angle2)
+    p2y = ay + arrow_len * math.sin(angle2)
+    for x1, y1, x2, y2 in ((p1x, p1y, ax, ay), (p2x, p2y, ax, ay)):
+        etree.SubElement(
+            group,
+            f"{{{SVG_NS}}}line",
+            attrib={
+                "x1": f"{x1:.3f}",
+                "y1": f"{y1:.3f}",
+                "x2": f"{x2:.3f}",
+                "y2": f"{y2:.3f}",
+                "stroke": color,
+                "stroke-width": stroke_width,
+            },
+        )
+
+
 def class_tokens(element: etree._Element) -> set[str]:
     return set((element.get("class") or "").split())
 
@@ -431,6 +821,7 @@ def add_interaction_lines(
     seq_group: etree._Element,
     coords: List[Tuple[float, float]],
     interactions: List[PuzzlerInteraction],
+    scale: float = 1.0,
 ) -> None:
     children = list(main_group)
     try:
@@ -439,6 +830,7 @@ def add_interaction_lines(
         insert_idx = len(children)
 
     interactions_group = etree.Element(f"{{{SVG_NS}}}g", attrib={"id": "interactions"})
+    symbol_radius = SYMBOL_RADIUS / scale
 
     for interaction in interactions:
         idx_left = interaction.number_left - 1
@@ -449,10 +841,16 @@ def add_interaction_lines(
         if idx_right < 0 or idx_right >= len(coords):
             continue
 
-        x1, y1 = coords[idx_left]
-        x2, y2 = coords[idx_right]
-        x1, y1, x2, y2 = shorten_line(x1, y1, x2, y2)
+        x1_orig, y1_orig = coords[idx_left]
+        x2_orig, y2_orig = coords[idx_right]
+        x1, y1, x2, y2 = shorten_line(x1_orig, y1_orig, x2_orig, y2_orig)
         svg_color = color_to_svg(interaction.color)
+        symbol_stroke_width = str(max(1.0, float(interaction.stroke_width) / scale))
+        line_stroke_width = interaction.stroke_width
+
+        if interaction.is_canonical:
+            svg_color = CANONICAL_BP_COLOR
+            line_stroke_width = "1.5"
 
         line_attrib: Dict[str, str] = {
             "x1": f"{x1:.3f}",
@@ -461,7 +859,7 @@ def add_interaction_lines(
             "y2": f"{y2:.3f}",
             "stroke": svg_color,
             "fill": "none",
-            "stroke-width": interaction.stroke_width,
+            "stroke-width": line_stroke_width,
         }
 
         if interaction.dasharray:
@@ -471,7 +869,207 @@ def add_interaction_lines(
 
         etree.SubElement(interactions_group, f"{{{SVG_NS}}}line", attrib=line_attrib)
 
+        edge5 = interaction.edge5
+        edge3 = interaction.edge3
+        if edge5 is None or edge3 is None or interaction.style == "simple":
+            continue
+
+        dx = x2_orig - x1_orig
+        dy = y2_orig - y1_orig
+        dist = math.hypot(dx, dy)
+        if dist == 0:
+            continue
+        ux = dx / dist
+        uy = dy / dist
+        cx = (x1_orig + x2_orig) / 2.0
+        cy = (y1_orig + y2_orig) / 2.0
+        angle = math.atan2(uy, ux)
+
+        if interaction.style == "lw_alt":
+            _draw_lw_alternative(
+                interactions_group,
+                cx,
+                cy,
+                angle,
+                edge5,
+                edge3,
+                interaction.cis,
+                svg_color,
+                symbol_stroke_width,
+                symbol_radius,
+            )
+        else:
+            if edge5 == edge3:
+                _draw_single_symbol(
+                    interactions_group,
+                    cx,
+                    cy,
+                    angle,
+                    edge5,
+                    symbol_radius,
+                    interaction.cis,
+                    svg_color,
+                    symbol_stroke_width,
+                )
+            else:
+                _draw_lw_separate(
+                    interactions_group,
+                    cx,
+                    cy,
+                    ux,
+                    uy,
+                    edge5,
+                    edge3,
+                    interaction.cis,
+                    svg_color,
+                    symbol_stroke_width,
+                    dist,
+                    symbol_radius,
+                )
+
     main_group.insert(insert_idx, interactions_group)
+
+
+def add_stacking_markers(
+    main_group: etree._Element,
+    seq_group: etree._Element,
+    coords: List[Tuple[float, float]],
+    stackings: List[PuzzlerStacking],
+    scale: float = 1.0,
+) -> None:
+    if not stackings:
+        return
+
+    children = list(main_group)
+    try:
+        insert_idx = children.index(seq_group)
+    except ValueError:
+        insert_idx = len(children)
+
+    stackings_group = etree.Element(f"{{{SVG_NS}}}g", attrib={"id": "stackings"})
+
+    for stacking in stackings:
+        idx_left = stacking.number_left - 1
+        idx_right = stacking.number_right - 1
+
+        if idx_left < 0 or idx_left >= len(coords):
+            continue
+        if idx_right < 0 or idx_right >= len(coords):
+            continue
+
+        x1, y1 = coords[idx_left]
+        x2, y2 = coords[idx_right]
+        dx = x2 - x1
+        dy = y2 - y1
+        dist = math.hypot(dx, dy)
+        if dist == 0:
+            continue
+        ux = dx / dist
+        uy = dy / dist
+
+        color = color_to_svg(stacking.color)
+        stroke_width = stacking.stroke_width
+        symbol_stroke_width = f"{max(1.0, float(stroke_width) / scale):.3f}"
+
+        line_x1, line_y1, line_x2, line_y2 = shorten_line(x1, y1, x2, y2)
+        etree.SubElement(
+            stackings_group,
+            f"{{{SVG_NS}}}line",
+            attrib={
+                "x1": f"{line_x1:.3f}",
+                "y1": f"{line_y1:.3f}",
+                "x2": f"{line_x2:.3f}",
+                "y2": f"{line_y2:.3f}",
+                "stroke": color,
+                "stroke-width": symbol_stroke_width,
+            },
+        )
+
+        arrow_len = (SYMBOL_RADIUS * 1.2) / scale
+        thickness = float(symbol_stroke_width)
+        requested_gap = (LABEL_RADIUS + arrow_len + thickness) / 2.0
+        max_gap = max(0.0, (dist - arrow_len - thickness) / 2.0)
+        gap = stacking.arrow_gap
+        if gap is None:
+            gap = requested_gap
+        gap = min(gap, max_gap)
+
+        center = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+        first_partner = (x1 + ux * gap, y1 + uy * gap)
+        second_partner = (x2 - ux * gap, y2 - uy * gap)
+
+        placement = stacking.arrow_placement
+        if placement == "centered":
+            _draw_stacking_arrowhead(
+                stackings_group,
+                (x1, y1),
+                (x2, y2),
+                center,
+                arrow_len,
+                symbol_stroke_width,
+                color,
+            )
+        elif placement == "first-partner":
+            _draw_stacking_arrowhead(
+                stackings_group,
+                (x1, y1),
+                (x2, y2),
+                first_partner,
+                arrow_len,
+                symbol_stroke_width,
+                color,
+            )
+        elif placement == "second-partner":
+            _draw_stacking_arrowhead(
+                stackings_group,
+                (x1, y1),
+                (x2, y2),
+                second_partner,
+                arrow_len,
+                symbol_stroke_width,
+                color,
+            )
+        elif placement == "both-partners":
+            _draw_stacking_arrowhead(
+                stackings_group,
+                (x1, y1),
+                (x2, y2),
+                first_partner,
+                arrow_len,
+                symbol_stroke_width,
+                color,
+            )
+            _draw_stacking_arrowhead(
+                stackings_group,
+                (x1, y1),
+                (x2, y2),
+                second_partner,
+                arrow_len,
+                symbol_stroke_width,
+                color,
+            )
+        elif placement == "opposing-partners":
+            _draw_stacking_arrowhead(
+                stackings_group,
+                (x1, y1),
+                (x2, y2),
+                first_partner,
+                arrow_len,
+                symbol_stroke_width,
+                color,
+                reverse=True,
+            )
+            _draw_stacking_arrowhead(
+                stackings_group,
+                (x1, y1),
+                (x2, y2),
+                second_partner,
+                arrow_len,
+                symbol_stroke_width,
+                color,
+            )
+
+    main_group.insert(insert_idx, stackings_group)
 
 
 def add_missing_residue_markers(
@@ -623,6 +1221,7 @@ def postprocess_svg(
     svg_content: str,
     strands: List[StrandInput],
     interactions: List[PuzzlerInteraction],
+    stackings: List[PuzzlerStacking],
     missing_res_numbers: List[int],
     nucleotide_colors: Optional[Dict[str, str]] = None,
 ) -> str:
@@ -631,6 +1230,7 @@ def postprocess_svg(
     update_css_styles(root)
 
     main_group = find_main_group(root)
+    scale = get_main_group_scale(main_group)
     if main_group is None:
         return etree.tostring(root, encoding="UTF-8", xml_declaration=True).decode(
             "UTF-8"
@@ -648,7 +1248,8 @@ def postprocess_svg(
 
     if seq_group is not None and coords:
         add_missing_residue_markers(main_group, seq_group, coords, missing_res_numbers)
-        add_interaction_lines(main_group, seq_group, coords, interactions)
+        add_interaction_lines(main_group, seq_group, coords, interactions, scale)
+        add_stacking_markers(main_group, seq_group, coords, stackings, scale)
 
     remove_scripts(root)
     remove_background_rectangles(root)
@@ -667,11 +1268,18 @@ def main() -> None:
 
     try:
         data = load_and_validate_json(args.json_file)
-        sequence, structure, interactions, missing_res_numbers = preprocess(data)
+        sequence, structure, interactions, stackings, missing_res_numbers = preprocess(
+            data
+        )
         svg_content = generate_rnapuzzler_svg(sequence, structure)
         nucleotide_colors = data.get("nucleotide_colors")
         postprocessed = postprocess_svg(
-            svg_content, data["strands"], interactions, missing_res_numbers, nucleotide_colors
+            svg_content,
+            data["strands"],
+            interactions,
+            stackings,
+            missing_res_numbers,
+            nucleotide_colors,
         )
 
         with open("raw.svg", "w", encoding="utf-8") as f:
