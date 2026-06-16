@@ -61,8 +61,8 @@ jobs:
           echo "digest_short=${BASE_DIGEST_SHORT:0:12}" >> "$GITHUB_OUTPUT"
         shell: bash
 
-      - name: Resolve R/Bioc/R4RNA versions
-        id: get_r4rna
+      - name: Resolve R/Bioc versions
+        id: get_r_bioc
         run: |
           set -euo pipefail
 
@@ -86,10 +86,8 @@ jobs:
             exec Rscript -e "
               rver <- R.Version()\$version.string;
               biocver <- as.character(BiocManager::version());
-              r4rna <- available.packages(repos = BiocManager::repositories())[\"R4RNA\", \"Version\"];
               cat(sprintf(\"R_VERSION=%s\n\", rver));
               cat(sprintf(\"BIOC_VERSION=%s\n\", biocver));
-              cat(sprintf(\"R4RNA_VERSION=%s\n\", r4rna));
             "
           ')
 
@@ -97,15 +95,31 @@ jobs:
 
           R_VERSION=$(echo "$VERSIONS" | grep "^R_VERSION=" | cut -d= -f2)
           BIOC_VERSION=$(echo "$VERSIONS" | grep "^BIOC_VERSION=" | cut -d= -f2)
-          R4RNA_VERSION=$(echo "$VERSIONS" | grep "^R4RNA_VERSION=" | cut -d= -f2)
 
-          if [ -z "$BIOC_VERSION" ] || [ -z "$R4RNA_VERSION" ]; then
-            echo "Error: Could not determine Bioconductor/R4RNA versions from base image."
+          if [ -z "$BIOC_VERSION" ]; then
+            echo "Error: Could not determine Bioconductor version from base image."
             exit 1
           fi
 
           echo "r_version=$R_VERSION" >> "$GITHUB_OUTPUT"
           echo "bioc_version=$BIOC_VERSION" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Resolve R4RNA version
+        id: get_r4rna
+        run: |
+          set -euo pipefail
+
+          BIOC_VERSION="${{ steps.get_r_bioc.outputs.bioc_version }}"
+          R4RNA_INFO=$(curl -sfL "https://bioconductor.org/packages/${BIOC_VERSION}/bioc/src/contrib/PACKAGES" | grep -A 1 "^Package: R4RNA$")
+          R4RNA_VERSION=$(echo "$R4RNA_INFO" | grep "^Version:" | awk '{print $2}')
+
+          if [ -z "$R4RNA_VERSION" ]; then
+            echo "Error: Could not fetch R4RNA version from Bioconductor ${BIOC_VERSION}."
+            exit 1
+          fi
+
+          echo "Latest R4RNA version: $R4RNA_VERSION"
           echo "r4rna_version=$R4RNA_VERSION" >> "$GITHUB_OUTPUT"
         shell: bash
 
@@ -126,7 +140,7 @@ jobs:
       - name: Compute upstream version
         id: get_version
         run: |
-          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_bioc-${{ steps.get_r4rna.outputs.bioc_version }}_r4rna-${{ steps.get_r4rna.outputs.r4rna_version }}_svgcleaner-${{ steps.get_svgcleaner_version.outputs.version }}" >> "$GITHUB_OUTPUT"
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_bioc-${{ steps.get_r_bioc.outputs.bioc_version }}_r4rna-${{ steps.get_r4rna.outputs.r4rna_version }}_svgcleaner-${{ steps.get_svgcleaner_version.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Decide whether to rebuild
         id: decide
@@ -190,7 +204,7 @@ jobs:
           context: ./rchie
           build-args: |
             CLI2REST_BASE=${{ steps.get_base.outputs.ref }}
-            BIOC_VERSION=${{ steps.get_r4rna.outputs.bioc_version }}
+            BIOC_VERSION=${{ steps.get_r_bioc.outputs.bioc_version }}
             R4RNA_VERSION=${{ steps.get_r4rna.outputs.r4rna_version }}
             SVGCLEANER_VERSION=${{ steps.get_svgcleaner_version.outputs.version }}
           pull: true
