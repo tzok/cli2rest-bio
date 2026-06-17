@@ -10,7 +10,17 @@ from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
 from tempfile import TemporaryDirectory
-from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import (
+    DefaultDict,
+    Deque,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 from lxml import etree
 
@@ -108,6 +118,12 @@ SYMBOL_OVERLAP_WEIGHT = 100.0
 CIRCLE_OVERLAP_WEIGHT = 100.0
 PREFERENCE_WEIGHT = 0.1
 SYMBOL_OVERLAP_MARGIN = 1.0
+DEFAULT_NUM_PERIOD = 10
+NUMBER_TICK_LENGTH = 5.0
+NUMBER_GAP = 4.0
+NUMBER_FONT_SIZE = "7"
+NUMBER_FONT_WEIGHT = "bold"
+NUMBER_COLOR = "#555555"
 
 
 class StrandInput(TypedDict):
@@ -136,6 +152,8 @@ class PuzzlerInput(TypedDict):
     interactions: Optional[List[InteractionInput]]
     stackings: Optional[List[StackingInput]]
     nucleotide_colors: Optional[Dict[str, str]]
+    num_labels: Optional[Dict[str, str]]
+    num_period: Optional[int]
     bp_style: Optional[str]
     stacking_arrow_placement: Optional[str]
     stacking_arrow_gap: Optional[float]
@@ -311,9 +329,41 @@ def load_and_validate_json(file_path: str) -> PuzzlerInput:
 
 def preprocess(
     data: PuzzlerInput,
-) -> Tuple[str, str, List[PuzzlerInteraction], List[PuzzlerStacking], List[int]]:
-    sequence = "".join(s["sequence"] for s in data["strands"])
-    structure_raw = "".join(s["structure"] for s in data["strands"])
+) -> Tuple[
+    str, str, List[PuzzlerInteraction], List[PuzzlerStacking], List[int], Set[int]
+]:
+    orig_lengths = [len(s["sequence"]) for s in data["strands"]]
+
+    # --- build phantom-included sequence and structure ---
+    seq_parts: List[str] = []
+    struct_parts: List[str] = []
+    phantom_positions: Set[int] = set()
+    cumulative = 0
+    for i, (seq, struct) in enumerate(
+        zip(
+            (s["sequence"] for s in data["strands"]),
+            (s["structure"] for s in data["strands"]),
+        )
+    ):
+        seq_parts.append(seq)
+        struct_parts.append(struct)
+        cumulative += len(seq)
+        if i < len(orig_lengths) - 1:
+            phantom_positions.add(cumulative + 1)  # 1‑based in new numbering
+            seq_parts.append("N")
+            struct_parts.append(".")
+    sequence = "".join(seq_parts)
+    structure_raw = "".join(struct_parts)
+
+    # --- position shifter (original → phantom‑included) ---
+    def shift_pos(p: int) -> int:
+        result = p
+        cumsum = 0
+        for length in orig_lengths[:-1]:
+            cumsum += length
+            if p > cumsum:
+                result += 1
+        return result
 
     bp_style = (data.get("bp_style") or "lw").lower()
     if bp_style not in BP_STYLES:
@@ -330,6 +380,10 @@ def preprocess(
         symbol = SYMBOLS.get(char)
         if symbol is None:
             raise ValueError(f"Unknown structure symbol '{char}' at position {i + 1}")
+        # Phantom positions are always unpaired – skip them during parsing.
+        if (i + 1) in phantom_positions:
+            modified_structure_chars.append(".")
+            continue
         if symbol.allowed:
             modified_structure_chars.append(char)
             if char == "(":
@@ -383,8 +437,8 @@ def preprocess(
                 style = "simple"
             custom_interactions.append(
                 PuzzlerInteraction(
-                    interaction["i"],
-                    interaction["j"],
+                    shift_pos(interaction["i"]),
+                    shift_pos(interaction["j"]),
                     color,
                     lw=lw,
                     edge5=parsed[1] if parsed else None,
@@ -405,8 +459,8 @@ def preprocess(
             thickness = str(stacking.get("thickness", "2.5"))
             stackings.append(
                 PuzzlerStacking(
-                    stacking["i"],
-                    stacking["j"],
+                    shift_pos(stacking["i"]),
+                    shift_pos(stacking["j"]),
                     color,
                     stroke_width=thickness,
                     arrow_placement=placement,
@@ -430,7 +484,14 @@ def preprocess(
     ]
     interactions.extend(custom_interactions)
 
-    return sequence, modified_structure, interactions, stackings, missing_res_numbers
+    return (
+        sequence,
+        modified_structure,
+        interactions,
+        stackings,
+        missing_res_numbers,
+        phantom_positions,
+    )
 
 
 def generate_rnapuzzler_svg(sequence: str, structure: str) -> str:
@@ -568,6 +629,7 @@ def center_nucleotide_labels(
     seq_group: etree._Element,
     nucleotide_colors: Optional[Dict[str, str]] = None,
     missing_res_numbers: Optional[List[int]] = None,
+    phantom_positions: Optional[Set[int]] = None,
 ) -> None:
     if seq_group.get("transform"):
         del seq_group.attrib["transform"]
@@ -577,10 +639,13 @@ def center_nucleotide_labels(
     seq_group.set("font-family", "sans-serif")
 
     missing_set = {str(n) for n in missing_res_numbers or []}
+    phantom_set = phantom_positions or set()
 
     def _style_text(text_elem: etree._Element, pos: str) -> None:
         text_elem.set("font-family", "sans-serif")
-        if pos in missing_set:
+        if int(pos) in phantom_set:
+            text_elem.set("display", "none")
+        elif pos in missing_set:
             text_elem.set("fill", MISSING_TEXT_FILL)
             text_elem.set("stroke", "none")
             text_elem.set("stroke-width", "0")
@@ -1290,6 +1355,7 @@ def add_nucleotide_circles(
     seq_group: etree._Element,
     coords: List[Tuple[float, float]],
     missing_res_numbers: List[int],
+    phantom_positions: Optional[Set[int]] = None,
 ) -> None:
     children = list(main_group)
     try:
@@ -1298,9 +1364,12 @@ def add_nucleotide_circles(
         insert_idx = len(children)
 
     missing_set = set(missing_res_numbers)
+    phantom_set = phantom_positions or set()
     circles_group = etree.Element(f"{{{SVG_NS}}}g", attrib={"id": "nucleotide-circles"})
 
     for i, (x, y) in enumerate(coords):
+        if (i + 1) in phantom_set:
+            continue
         stroke = MISSING_CIRCLE_STROKE if (i + 1) in missing_set else CIRCLE_STROKE
         circle_attrib = {
             "cx": f"{x:.3f}",
@@ -1423,13 +1492,117 @@ def remove_background_rectangles(root: etree._Element) -> None:
             parent.remove(rect)
 
 
+def _path_vertices(d: str) -> List[Tuple[float, float]]:
+    """Extract vertex coordinates from an SVG path-d string.
+
+    All numeric pairs are returned regardless of command type —
+    control points and on‑curve points are treated identically.
+    """
+    nums = re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", d)
+    vertices = []
+    for i in range(0, len(nums) - 1, 2):
+        try:
+            vertices.append((float(nums[i]), float(nums[i + 1])))
+        except (ValueError, IndexError):
+            pass
+    return vertices
+
+
+def _remove_phantom_elements(
+    root: etree._Element,
+    coords: List[Tuple[float, float]],
+    phantom_positions: Set[int],
+) -> None:
+    """Remove ``<line>`` elements that specifically connect to a phantom.
+
+    Only ``<line>`` elements are handled here — their ``x1/y1/x2/y2``
+    attributes are always absolute, so the neighbour‑matching test is
+    reliable.  ``<path>`` elements are left to the strand‑break mask,
+    which hides them per‑pixel instead of removing the whole element.
+    """
+    if not phantom_positions:
+        return
+
+    tolerance = NUCLEOTIDE_RADIUS * 1.1
+
+    phantom_neighbours: Dict[int, List[Tuple[float, float]]] = {}
+    for p in sorted(phantom_positions):
+        if p <= 1 or p > len(coords):
+            continue
+        phantom_neighbours[p] = []
+        if p - 1 >= 1 and p - 1 <= len(coords):
+            phantom_neighbours[p].append(coords[p - 2])
+        if p + 1 <= len(coords):
+            phantom_neighbours[p].append(coords[p])
+    if not phantom_neighbours:
+        return
+
+    phantom_centres = {p: coords[p - 1] for p in phantom_neighbours}
+
+    line_tags = {f"{{{SVG_NS}}}line", "line"}
+    to_remove: List[etree._Element] = []
+
+    for elem in root.iterdescendants():
+        if elem.tag not in line_tags:
+            continue
+
+        x1 = _opt_float(elem.get("x1"))
+        y1 = _opt_float(elem.get("y1"))
+        x2 = _opt_float(elem.get("x2"))
+        y2 = _opt_float(elem.get("y2"))
+        if x1 is None:
+            continue
+        for p, neighbours in phantom_neighbours.items():
+            cx, cy = phantom_centres[p]
+            d1p = math.hypot(x1 - cx, y1 - cy)
+            d2p = math.hypot(x2 - cx, y2 - cy)
+            if d1p > tolerance and d2p > tolerance:
+                continue
+            other = (x1, y1) if d1p > d2p else (x2, y2)
+            for nx, ny in neighbours:
+                if math.hypot(other[0] - nx, other[1] - ny) < tolerance:
+                    to_remove.append(elem)
+                    break
+            else:
+                continue
+            break
+
+    for elem in to_remove:
+        parent = elem.getparent()
+        if parent is not None:
+            parent.remove(elem)
+
+
+def _opt_float(s: Optional[str]) -> Optional[float]:
+    if s is None:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def _parse_points(s: str) -> List[Tuple[float, float]]:
+    nums = re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", s)
+    points = []
+    for i in range(0, len(nums) - 1, 2):
+        try:
+            points.append((float(nums[i]), float(nums[i + 1])))
+        except (ValueError, IndexError):
+            pass
+    return points
+
+
 def postprocess_svg(
     svg_content: str,
     strands: List[StrandInput],
     interactions: List[PuzzlerInteraction],
     stackings: List[PuzzlerStacking],
     missing_res_numbers: List[int],
+    phantom_positions: Set[int],
     nucleotide_colors: Optional[Dict[str, str]] = None,
+    num_period: int = DEFAULT_NUM_PERIOD,
+    labels: Optional[Dict[str, str]] = None,
 ) -> str:
     root = etree.fromstring(svg_content.encode("utf-8"))
 
@@ -1446,18 +1619,397 @@ def postprocess_svg(
     seq_group = find_seq_group(main_group)
 
     if seq_group is not None:
-        center_nucleotide_labels(seq_group, nucleotide_colors, missing_res_numbers)
+        center_nucleotide_labels(
+            seq_group, nucleotide_colors, missing_res_numbers, phantom_positions
+        )
 
     remove_rnaplot_base_pair_graphics(main_group)
     split_backbone_at_strand_boundaries(main_group, strands)
+    _remove_phantom_elements(root, coords, phantom_positions)
 
     if seq_group is not None and coords:
         add_interaction_lines(main_group, seq_group, coords, interactions)
-        add_nucleotide_circles(main_group, seq_group, coords, missing_res_numbers)
+        add_nucleotide_circles(
+            main_group, seq_group, coords, missing_res_numbers, phantom_positions
+        )
         add_stacking_markers(main_group, seq_group, coords, stackings)
+        _add_nucleotide_numbers(
+            main_group,
+            seq_group,
+            coords,
+            strands,
+            num_period,
+            labels,
+            phantom_positions,
+        )
 
     remove_scripts(root)
     remove_background_rectangles(root)
+    _apply_strand_break_mask(root, main_group, coords, strands, phantom_positions)
+
+    return etree.tostring(root, encoding="UTF-8", xml_declaration=True).decode("UTF-8")
+
+
+def _strand_boundaries(strands: List[StrandInput]) -> List[int]:
+    """Return 1-based residue indices at the end of each strand except the last."""
+    boundaries = []
+    cumulative = 0
+    for strand in strands[:-1]:
+        cumulative += len(strand["sequence"])
+        boundaries.append(cumulative)
+    return boundaries
+
+
+def _boundary_capsule_points(
+    p1: Tuple[float, float], p2: Tuple[float, float], width: float
+) -> List[Tuple[float, float]]:
+    """Return a quadrilateral covering the segment p1-p2 with the given width."""
+    dx = p2[0] - p1[0]
+    dy = p2[1] - p1[1]
+    length = math.hypot(dx, dy)
+    if length == 0.0:
+        return [p1, p1, p1, p1]
+    ux = dx / length
+    uy = dy / length
+    nx = -uy
+    ny = ux
+    half = width / 2.0
+    return [
+        (p1[0] + nx * half, p1[1] + ny * half),
+        (p2[0] + nx * half, p2[1] + ny * half),
+        (p2[0] - nx * half, p2[1] - ny * half),
+        (p1[0] - nx * half, p1[1] - ny * half),
+    ]
+
+
+def _apply_strand_break_mask(
+    root: etree._Element,
+    main_group: etree._Element,
+    coords: List[Tuple[float, float]],
+    strands: List[StrandInput],
+    phantom_positions: Optional[Set[int]] = None,
+) -> None:
+    """Mask out backbone segments that connect consecutive strands."""
+    boundaries = _strand_boundaries(strands)
+    if not boundaries or not coords:
+        return
+
+    # --- find backbone elements to mask ---
+    # Only mask elements with class="backbone" — NOT interaction lines
+    # (which may share the same stroke colour).
+    backbone_tags = {
+        f"{{{SVG_NS}}}path",
+        f"{{{SVG_NS}}}polyline",
+        f"{{{SVG_NS}}}line",
+        "path",
+        "polyline",
+        "line",
+    }
+    candidates: List[etree._Element] = []
+    for elem in main_group.iterdescendants():
+        if elem.tag not in backbone_tags:
+            continue
+        if "backbone" in (elem.get("class") or ""):
+            candidates.append(elem)
+
+    if not candidates:
+        return
+
+    # --- build mask ---
+    defs = root.find(f".//{{{SVG_NS}}}defs")
+    if defs is None:
+        defs = etree.Element(f"{{{SVG_NS}}}defs")
+        root.insert(0, defs)
+
+    mask = etree.Element(
+        f"{{{SVG_NS}}}mask",
+        attrib={
+            "id": "strand-break-mask",
+            "maskUnits": "userSpaceOnUse",
+        },
+    )
+    etree.SubElement(
+        mask,
+        f"{{{SVG_NS}}}rect",
+        attrib={
+            "x": "-10000",
+            "y": "-10000",
+            "width": "30000",
+            "height": "30000",
+            "fill": "white",
+        },
+    )
+
+    # Build mask capsules.  For non-phantom cases a single capsule
+    # between the two neighbouring residues suffices.
+    # For phantom cases the backbone goes prev → phantom → next, so we
+    # need two capsules that follow the actual path through the phantom.
+    capsule_width = 6.0
+    if phantom_positions:
+        for b in boundaries:
+            phantom_p = b + 1  # 1-based phantom position
+            if phantom_p > len(coords) or b > len(coords):
+                continue
+            prev_coord = coords[b - 1]
+            phantom_coord = coords[phantom_p - 1]
+            next_coord = coords[phantom_p] if phantom_p < len(coords) else None
+            # Capsule 1: prev → phantom
+            pts1 = _boundary_capsule_points(prev_coord, phantom_coord, capsule_width)
+            etree.SubElement(
+                mask,
+                f"{{{SVG_NS}}}polygon",
+                attrib={"points": _points_to_svg(pts1), "fill": "black"},
+            )
+            # Capsule 2: phantom → next
+            if next_coord is not None:
+                pts2 = _boundary_capsule_points(
+                    phantom_coord, next_coord, capsule_width
+                )
+                etree.SubElement(
+                    mask,
+                    f"{{{SVG_NS}}}polygon",
+                    attrib={"points": _points_to_svg(pts2), "fill": "black"},
+                )
+            # Circle at phantom to catch triangle artifacts
+            etree.SubElement(
+                mask,
+                f"{{{SVG_NS}}}circle",
+                attrib={
+                    "cx": f"{phantom_coord[0]:.3f}",
+                    "cy": f"{phantom_coord[1]:.3f}",
+                    "r": f"{capsule_width / 2.0:.3f}",
+                    "fill": "black",
+                },
+            )
+    else:
+        for b_a, b_b in [(b, b + 1) for b in boundaries]:
+            if b_a < 1 or b_a >= len(coords):
+                continue
+            if b_b < 1 or b_b >= len(coords):
+                continue
+            points = _boundary_capsule_points(
+                coords[b_a - 1], coords[b_b - 1], capsule_width
+            )
+            etree.SubElement(
+                mask,
+                f"{{{SVG_NS}}}polygon",
+                attrib={"points": _points_to_svg(points), "fill": "black"},
+            )
+
+    defs.append(mask)
+
+    for elem in candidates:
+        elem.set("mask", "url(#strand-break-mask)")
+
+
+def _outward_directions(
+    coords: List[Tuple[float, float]],
+) -> List[Tuple[float, float]]:
+    """Compute an outward-pointing unit vector for each nucleotide.
+
+    The backbone bisector is computed for each residue and rotated 90°
+    counter-clockwise.  Among the two perpendicular candidates the one
+    that places the number tick farthest from all *other* nucleotide
+    centres is chosen.
+    """
+    n = len(coords)
+    if n == 0:
+        return []
+    if n == 1:
+        return [(1.0, 0.0)]
+
+    # Precompute bisectors.
+    bisectors: List[Tuple[float, float]] = []
+    for i in range(n):
+        prev = coords[i - 1] if i > 0 else coords[i]
+        nxt = coords[i + 1] if i < n - 1 else coords[i]
+        dx1 = coords[i][0] - prev[0]
+        dy1 = coords[i][1] - prev[1]
+        dx2 = nxt[0] - coords[i][0]
+        dy2 = nxt[1] - coords[i][1]
+        len1 = math.hypot(dx1, dy1)
+        len2 = math.hypot(dx2, dy2)
+        ux1 = dx1 / len1 if len1 > 0 else 0.0
+        uy1 = dy1 / len1 if len1 > 0 else 0.0
+        ux2 = dx2 / len2 if len2 > 0 else 0.0
+        uy2 = dy2 / len2 if len2 > 0 else 0.0
+        bx = ux1 + ux2
+        by = uy1 + uy2
+        blen = math.hypot(bx, by)
+        if blen > 0:
+            bx /= blen
+            by /= blen
+        else:
+            bx, by = 1.0, 0.0
+        bisectors.append((bx, by))
+
+    result: List[Tuple[float, float]] = []
+    for i in range(n):
+        bx, by = bisectors[i]
+        # Two perpendicular candidates.
+        cand_a = (-by, bx)
+        cand_b = (by, -bx)
+
+        best_dir = cand_a
+        best_dist = -1.0
+        for nx, ny in (cand_a, cand_b):
+            tip_x = coords[i][0] + nx * (NUCLEOTIDE_RADIUS + NUMBER_TICK_LENGTH)
+            tip_y = coords[i][1] + ny * (NUCLEOTIDE_RADIUS + NUMBER_TICK_LENGTH)
+            min_d = float("inf")
+            for j, (ox, oy) in enumerate(coords):
+                if j == i:
+                    continue
+                d = math.hypot(tip_x - ox, tip_y - oy)
+                if d < min_d:
+                    min_d = d
+            if min_d > best_dist:
+                best_dist = min_d
+                best_dir = (nx, ny)
+
+        result.append(best_dir)
+    return result
+
+
+def _number_positions(
+    strands: List[StrandInput],
+    num_period: int,
+    labels: Optional[Dict[str, str]] = None,
+) -> List[Tuple[int, str]]:
+    """Return (global-position-1-based, label-text) for numbered residues.
+
+    Numbering restarts at 1 for each strand.  The first and last residue of
+    every strand are always numbered, together with every *num_period*-th
+    residue counted from the start of the strand.  Custom labels from the
+    ``num_labels`` input dictionary override auto-generated labels.
+    """
+    result: List[Tuple[int, str]] = []
+    if num_period <= 0:
+        return result
+
+    labels_by_global = labels or {}
+    seen_global: set[int] = set()
+    cumulative = 0
+
+    for strand in strands:
+        length = len(strand["sequence"])
+        for intra_pos in range(1, length + 1):
+            global_pos = cumulative + intra_pos
+            label = None
+
+            # Custom label takes priority.
+            custom = labels_by_global.get(str(global_pos))
+            if custom is not None:
+                label = custom
+            elif intra_pos == 1:
+                label = str(intra_pos)
+            elif intra_pos == length:
+                label = str(intra_pos)
+            elif intra_pos % num_period == 0:
+                label = str(intra_pos)
+
+            if label is not None and global_pos not in seen_global:
+                result.append((global_pos, label))
+                seen_global.add(global_pos)
+
+        cumulative += length
+
+    return sorted(result)
+
+
+def _add_nucleotide_numbers(
+    main_group: etree._Element,
+    seq_group: etree._Element,
+    coords: List[Tuple[float, float]],
+    strands: List[StrandInput],
+    num_period: int,
+    labels: Optional[Dict[str, str]] = None,
+    phantom_positions: Optional[Set[int]] = None,
+) -> None:
+    """Draw tick lines and number labels at selected nucleotide positions."""
+    numbers = _number_positions(strands, num_period, labels)
+    phantom_set = phantom_positions or set()
+    # Shift positions for inserted phantom residues and filter them out.
+    shifted = []
+    for p, lbl in numbers:
+        shift_amount = sum(1 for q in phantom_set if q <= p)
+        pp = p + shift_amount
+        if pp not in phantom_set:
+            shifted.append((pp, lbl))
+    numbers = shifted
+    if not numbers:
+        return
+
+    outward = _outward_directions(coords)
+
+    children = list(main_group)
+    try:
+        insert_idx = children.index(seq_group)
+    except ValueError:
+        insert_idx = len(children)
+
+    numbers_group = etree.Element(f"{{{SVG_NS}}}g", attrib={"id": "nucleotide-numbers"})
+
+    for global_pos, label_text in numbers:
+        idx = global_pos - 1
+        if idx < 0 or idx >= len(coords):
+            continue
+        cx, cy = coords[idx]
+        nx, ny = outward[idx]
+        tick_start_x = cx + nx * NUCLEOTIDE_RADIUS
+        tick_start_y = cy + ny * NUCLEOTIDE_RADIUS
+        tick_end_x = cx + nx * (NUCLEOTIDE_RADIUS + NUMBER_TICK_LENGTH)
+        tick_end_y = cy + ny * (NUCLEOTIDE_RADIUS + NUMBER_TICK_LENGTH)
+        etree.SubElement(
+            numbers_group,
+            f"{{{SVG_NS}}}line",
+            attrib={
+                "x1": f"{tick_start_x:.3f}",
+                "y1": f"{tick_start_y:.3f}",
+                "x2": f"{tick_end_x:.3f}",
+                "y2": f"{tick_end_y:.3f}",
+                "stroke": NUMBER_COLOR,
+                "stroke-width": "1",
+            },
+        )
+        label_x = cx + nx * (NUCLEOTIDE_RADIUS + NUMBER_TICK_LENGTH + NUMBER_GAP)
+        label_y = cy + ny * (NUCLEOTIDE_RADIUS + NUMBER_TICK_LENGTH + NUMBER_GAP)
+        etree.SubElement(
+            numbers_group,
+            f"{{{SVG_NS}}}text",
+            attrib={
+                "x": f"{label_x:.3f}",
+                "y": f"{label_y:.3f}",
+                "fill": NUMBER_COLOR,
+                "font-size": NUMBER_FONT_SIZE,
+                "font-weight": NUMBER_FONT_WEIGHT,
+                "font-family": "sans-serif",
+                "text-anchor": "middle",
+                "dominant-baseline": "central",
+            },
+        )
+        numbers_group[-1].text = label_text
+
+    main_group.insert(insert_idx, numbers_group)
+
+
+def ensure_svg_viewbox(svg_content: str) -> str:
+    """Add viewBox and preserveAspectRatio to the SVG root if missing."""
+    root = etree.fromstring(svg_content.encode("utf-8"))
+    width = root.get("width")
+    height = root.get("height")
+
+    if width and height:
+        # Strip optional units such as px or pt.
+        w_str = width.replace("px", "").replace("pt", "").strip()
+        h_str = height.replace("px", "").replace("pt", "").strip()
+        try:
+            w = float(w_str)
+            h = float(h_str)
+            if not root.get("viewBox"):
+                root.set("viewBox", f"0 0 {w} {h}")
+            root.set("preserveAspectRatio", "xMidYMid meet")
+        except ValueError:
+            pass
 
     return etree.tostring(root, encoding="UTF-8", xml_declaration=True).decode("UTF-8")
 
@@ -1473,34 +2025,36 @@ def main() -> None:
 
     try:
         data = load_and_validate_json(args.json_file)
-        sequence, structure, interactions, stackings, missing_res_numbers = preprocess(
-            data
-        )
+        (
+            sequence,
+            structure,
+            interactions,
+            stackings,
+            missing_res_numbers,
+            phantom_positions,
+        ) = preprocess(data)
         svg_content = generate_rnapuzzler_svg(sequence, structure)
         nucleotide_colors = data.get("nucleotide_colors")
+        num_period = data.get("num_period", DEFAULT_NUM_PERIOD)
+        labels = data.get("num_labels")
         postprocessed = postprocess_svg(
             svg_content,
             data["strands"],
             interactions,
             stackings,
             missing_res_numbers,
+            phantom_positions,
             nucleotide_colors,
+            num_period=num_period,
+            labels=labels,
         )
 
         with open("raw.svg", "w", encoding="utf-8") as f:
             f.write(postprocessed)
 
-        # Crop SVG to actual drawing area using inkscape
-        inkscape_cmd = [
-            "inkscape",
-            "raw.svg",
-            "--export-area-drawing",
-            "--export-filename=output.svg",
-        ]
-        subprocess.run(inkscape_cmd, capture_output=True, text=True, check=True)
-
-        svgcleaner_cmd = ["svgcleaner", "output.svg", "clean.svg"]
-        subprocess.run(svgcleaner_cmd, capture_output=True, text=True, check=True)
+        # Bypass inkscape + svgcleaner for debugging — output raw.svg as clean.svg
+        with open("clean.svg", "w", encoding="utf-8") as f:
+            f.write(ensure_svg_viewbox(postprocessed))
 
     except Exception as e:
         print(f"Processing failed: {e}", file=sys.stderr)
