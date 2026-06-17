@@ -83,7 +83,7 @@ SVG_NS = "http://www.w3.org/2000/svg"
 OUTPUT_SVG = "rna.svg"
 MAX_STRUCTURE_LENGTH = 32767
 NUCLEOTIDE_RADIUS = 8.0
-SYMBOL_RADIUS = NUCLEOTIDE_RADIUS * 0.75
+SYMBOL_RADIUS = NUCLEOTIDE_RADIUS * 0.5
 INNER_SCALE = 0.45
 CANONICAL_BP_COLOR = "#c0c0c0"
 CIRCLE_FILL = "#f7f7f7"
@@ -107,7 +107,6 @@ SYMBOL_OPTIMIZATION_CANDIDATES = 15
 SYMBOL_OVERLAP_WEIGHT = 100.0
 CIRCLE_OVERLAP_WEIGHT = 100.0
 PREFERENCE_WEIGHT = 0.1
-PERPENDICULAR_WEIGHT = 0.5
 SYMBOL_OVERLAP_MARGIN = 1.0
 
 
@@ -575,10 +574,12 @@ def center_nucleotide_labels(
     seq_group.set("text-anchor", "middle")
     seq_group.set("dominant-baseline", "central")
     seq_group.set("fill", "#333333")
+    seq_group.set("font-family", "sans-serif")
 
     missing_set = {str(n) for n in missing_res_numbers or []}
 
     def _style_text(text_elem: etree._Element, pos: str) -> None:
+        text_elem.set("font-family", "sans-serif")
         if pos in missing_set:
             text_elem.set("fill", MISSING_TEXT_FILL)
             text_elem.set("stroke", "none")
@@ -930,7 +931,6 @@ def _optimize_symbol_placements(
         ux, uy = placement.ux, placement.uy
         dist = placement.dist
         ideal_cx, ideal_cy = placement.ideal_center
-        radius = placement.radius
 
         # Fast path: the ideal position already has no collisions with fixed
         # symbols or nucleotide circles.
@@ -940,36 +940,25 @@ def _optimize_symbol_placements(
             continue
 
         best_penalty = float("inf")
-        best = (ideal_cx, ideal_cy, 0.0)
+        best = (ideal_cx, ideal_cy)
 
-        def evaluate(t: float, perp: float) -> Tuple[float, Tuple[float, float, float]]:
-            cx = x1 + ux * t * dist - uy * perp
-            cy = y1 + uy * t * dist + ux * perp
+        def evaluate(t: float) -> Tuple[float, Tuple[float, float]]:
+            cx = x1 + ux * t * dist
+            cy = y1 + uy * t * dist
             pen = _obstacle_penalty(placement, cx, cy, coords, fixed)
             dx = cx - ideal_cx
             dy = cy - ideal_cy
             pen += PREFERENCE_WEIGHT * (dx * dx + dy * dy)
-            pen += PERPENDICULAR_WEIGHT * abs(perp)
-            return pen, (cx, cy, perp)
+            return pen, (cx, cy)
 
         candidates_t = _candidate_t_values(placement)
         for t in candidates_t:
-            pen, cand = evaluate(t, 0.0)
+            pen, cand = evaluate(t)
             if pen < best_penalty:
                 best_penalty = pen
                 best = cand
 
-        # If overlap remains, allow a small perpendicular nudge for non-alt
-        # symbols. lw_alt nested symbols should stay on the bond.
-        if best_penalty > 1e-3 and placement.style != "alt":
-            for t in candidates_t:
-                for sign in (-1.0, 1.0):
-                    pen, cand = evaluate(t, sign * radius)
-                    if pen < best_penalty:
-                        best_penalty = pen
-                        best = cand
-
-        placement.center = (best[0], best[1])
+        placement.center = best
         fixed.append(placement)
 
 
