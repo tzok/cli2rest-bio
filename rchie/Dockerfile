@@ -21,7 +21,14 @@ RUN apt-get update -y \
 ARG BIOC_VERSION
 ARG R4RNA_VERSION
 
-RUN Rscript -e 'options(download.file.method = "curl"); if (nzchar(Sys.getenv("BIOC_VERSION"))) { BiocManager::install(version = Sys.getenv("BIOC_VERSION"), ask = FALSE, update = FALSE) }; BiocManager::install("R4RNA", ask = FALSE, update = FALSE); if (nzchar(Sys.getenv("BIOC_VERSION"))) { actual_bioc <- as.character(BiocManager::version()); if (actual_bioc != Sys.getenv("BIOC_VERSION")) { stop(sprintf("Bioconductor version mismatch: expected %s, got %s", Sys.getenv("BIOC_VERSION"), actual_bioc)) } }; if (nzchar(Sys.getenv("R4RNA_VERSION"))) { actual_r4rna <- as.character(packageVersion("R4RNA")); if (actual_r4rna != Sys.getenv("R4RNA_VERSION")) { stop(sprintf("R4RNA version mismatch: expected %s, got %s", Sys.getenv("R4RNA_VERSION"), actual_r4rna)) } }'
+RUN if [ -z "$BIOC_VERSION" ] || [ -z "$R4RNA_VERSION" ]; then \
+      echo "Error: BIOC_VERSION and R4RNA_VERSION build args are required."; \
+      exit 1; \
+    fi \
+ && curl -sfL -o /tmp/R4RNA.tar.gz "https://bioconductor.org/packages/${BIOC_VERSION}/bioc/src/contrib/R4RNA_${R4RNA_VERSION}.tar.gz" \
+ && R CMD INSTALL /tmp/R4RNA.tar.gz \
+ && rm -f /tmp/R4RNA.tar.gz \
+ && Rscript -e "actual_r4rna <- as.character(packageVersion(\"R4RNA\")); if (actual_r4rna != Sys.getenv(\"R4RNA_VERSION\")) { stop(sprintf(\"R4RNA version mismatch: expected %s, got %s\", Sys.getenv(\"R4RNA_VERSION\"), actual_r4rna)) }"
 
 ARG SVGCLEANER_VERSION=0.9.5
 
