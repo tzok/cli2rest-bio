@@ -60,7 +60,7 @@ COLORS: Dict[str, str] = {
     "c": "0.545 0.463 0.02",
     "d": "0.773 0.396 0.812",
     "e": "0.624 0.725 0.145",
-    "NOT_REPRESENTED": "0.5 0.5 0.5",
+    "NOT_REPRESENTED": "#6b7280",
     "-": "1 0 0",
 }
 
@@ -82,10 +82,16 @@ CSS_COLOR_NAMES: Dict[str, str] = {
 SVG_NS = "http://www.w3.org/2000/svg"
 OUTPUT_SVG = "rna.svg"
 MAX_STRUCTURE_LENGTH = 32767
-LABEL_RADIUS = 9.0
-SYMBOL_RADIUS = LABEL_RADIUS * 0.75
+NUCLEOTIDE_RADIUS = 8.0
+SYMBOL_RADIUS = NUCLEOTIDE_RADIUS * 0.75
 INNER_SCALE = 0.45
-CANONICAL_BP_COLOR = "rgb(191,191,191)"
+CANONICAL_BP_COLOR = "#c0c0c0"
+CIRCLE_FILL = "#f7f7f7"
+CIRCLE_STROKE = "#777777"
+CIRCLE_STROKE_WIDTH = "1"
+MISSING_CIRCLE_STROKE = "#d32f2f"
+MISSING_TEXT_FILL = "#d32f2f"
+LINE_PADDING = NUCLEOTIDE_RADIUS + float(CIRCLE_STROKE_WIDTH) / 2.0
 
 LW_EDGE_MAP = {"W": "W", "H": "H", "S": "S"}
 BP_STYLES = {"simple", "lw", "lw_alt"}
@@ -365,7 +371,7 @@ def preprocess(
             placement = "centered"
         gap = data.get("stacking_arrow_gap")
         for stacking in extra_stackings:
-            color = stacking.get("color") or "0 0 1"
+            color = stacking.get("color") or "#4a90e2"
             thickness = str(stacking.get("thickness", "2.5"))
             stackings.append(
                 PuzzlerStacking(
@@ -521,7 +527,7 @@ def update_css_styles(root: etree._Element) -> None:
         return
 
     css = style_elem.text or ""
-    css = css.replace("stroke: grey", "stroke: rgb(191,191,191)")
+    css = css.replace("stroke: grey", f"stroke: {CANONICAL_BP_COLOR}")
     # Make backbone polylines slightly thicker
     css = css.replace("fill: none;", "fill: none; stroke-width: 2;")
     css = css.replace("stroke: red", "stroke: black")
@@ -531,32 +537,35 @@ def update_css_styles(root: etree._Element) -> None:
 def center_nucleotide_labels(
     seq_group: etree._Element,
     nucleotide_colors: Optional[Dict[str, str]] = None,
+    missing_res_numbers: Optional[List[int]] = None,
 ) -> None:
     if seq_group.get("transform"):
         del seq_group.attrib["transform"]
     seq_group.set("text-anchor", "middle")
     seq_group.set("dominant-baseline", "central")
-    seq_group.set("fill", "#444")
+    seq_group.set("fill", "#333333")
 
-    if nucleotide_colors:
-        for i, text_elem in enumerate(seq_group.findall(f"{{{SVG_NS}}}text")):
-            pos = str(i + 1)
-            if pos in nucleotide_colors:
-                svg_color = color_to_svg(nucleotide_colors[pos])
-                text_elem.set("fill", svg_color)
-                text_elem.set("stroke", "none")
-                text_elem.set("stroke-width", "0")
-        for i, text_elem in enumerate(seq_group.findall("text")):
-            pos = str(i + 1)
-            if pos in nucleotide_colors:
-                svg_color = color_to_svg(nucleotide_colors[pos])
-                text_elem.set("fill", svg_color)
-                text_elem.set("stroke", "none")
-                text_elem.set("stroke-width", "0")
+    missing_set = {str(n) for n in missing_res_numbers or []}
+
+    def _style_text(text_elem: etree._Element, pos: str) -> None:
+        if pos in missing_set:
+            text_elem.set("fill", MISSING_TEXT_FILL)
+            text_elem.set("stroke", "none")
+            text_elem.set("stroke-width", "0")
+        elif nucleotide_colors and pos in nucleotide_colors:
+            svg_color = color_to_svg(nucleotide_colors[pos])
+            text_elem.set("fill", svg_color)
+            text_elem.set("stroke", "none")
+            text_elem.set("stroke-width", "0")
+
+    for i, text_elem in enumerate(seq_group.findall(f"{{{SVG_NS}}}text")):
+        _style_text(text_elem, str(i + 1))
+    for i, text_elem in enumerate(seq_group.findall("text")):
+        _style_text(text_elem, str(i + 1))
 
 
 def shorten_line(
-    x1: float, y1: float, x2: float, y2: float, padding: float = LABEL_RADIUS
+    x1: float, y1: float, x2: float, y2: float, padding: float = LINE_PADDING
 ) -> Tuple[float, float, float, float]:
     dx = x2 - x1
     dy = y2 - y1
@@ -758,48 +767,39 @@ def _draw_lw_alternative(
     )
 
 
-def _draw_stacking_arrowhead(
+def _draw_filled_arrowhead(
     group: etree._Element,
-    start: Tuple[float, float],
-    end: Tuple[float, float],
-    visual_center: Tuple[float, float],
+    tip: Tuple[float, float],
+    ux: float,
+    uy: float,
     arrow_len: float,
-    stroke_width: str,
     color: str,
-    reverse: bool = False,
 ) -> None:
-    sx, sy = start
-    ex, ey = end
-    if reverse:
-        sx, sy, ex, ey = ex, ey, sx, sy
-    seg_len = math.hypot(ex - sx, ey - sy)
-    if seg_len == 0.0:
+    """Draw a solid triangular arrowhead.
+
+    The triangle tip is placed at ``tip`` and points along ``(ux, uy)``.
+    """
+    if arrow_len <= 0.0:
         return
-    ux = (ex - sx) / seg_len
-    uy = (ey - sy) / seg_len
-    head_depth = arrow_len * math.cos(math.radians(45.0))
-    ax = visual_center[0] + ux * (head_depth / 2.0)
-    ay = visual_center[1] + uy * (head_depth / 2.0)
-    main_angle = math.atan2(sy - ey, sx - ex)
-    angle1 = main_angle + math.radians(45.0)
-    angle2 = main_angle - math.radians(45.0)
-    p1x = ax + arrow_len * math.cos(angle1)
-    p1y = ay + arrow_len * math.sin(angle1)
-    p2x = ax + arrow_len * math.cos(angle2)
-    p2y = ay + arrow_len * math.sin(angle2)
-    for x1, y1, x2, y2 in ((p1x, p1y, ax, ay), (p2x, p2y, ax, ay)):
-        etree.SubElement(
-            group,
-            f"{{{SVG_NS}}}line",
-            attrib={
-                "x1": f"{x1:.3f}",
-                "y1": f"{y1:.3f}",
-                "x2": f"{x2:.3f}",
-                "y2": f"{y2:.3f}",
-                "stroke": color,
-                "stroke-width": stroke_width,
-            },
-        )
+    bx = tip[0] - ux * arrow_len
+    by = tip[1] - uy * arrow_len
+    nx = -uy
+    ny = ux
+    half_base = arrow_len * math.tan(math.radians(22.5))
+    p1x = bx + nx * half_base
+    p1y = by + ny * half_base
+    p2x = bx - nx * half_base
+    p2y = by - ny * half_base
+    points = _points_to_svg([(tip[0], tip[1]), (p1x, p1y), (p2x, p2y)])
+    etree.SubElement(
+        group,
+        f"{{{SVG_NS}}}polygon",
+        attrib={
+            "points": points,
+            "fill": color,
+            "stroke": "none",
+        },
+    )
 
 
 def class_tokens(element: etree._Element) -> set[str]:
@@ -986,127 +986,84 @@ def add_stacking_markers(
         )
 
         arrow_len = (SYMBOL_RADIUS * 1.2) / scale
-        thickness = float(symbol_stroke_width)
-        requested_gap = (LABEL_RADIUS + arrow_len + thickness) / 2.0
-        max_gap = max(0.0, (dist - arrow_len - thickness) / 2.0)
-        gap = stacking.arrow_gap
-        if gap is None:
-            gap = requested_gap
-        gap = min(gap, max_gap)
+        available = math.hypot(line_x2 - line_x1, line_y2 - line_y1)
+        if available < arrow_len:
+            arrow_len = max(0.0, available)
+        if arrow_len <= 0.0:
+            continue
 
-        center = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
-        first_partner = (x1 + ux * gap, y1 + uy * gap)
-        second_partner = (x2 - ux * gap, y2 - uy * gap)
+        gap = stacking.arrow_gap or 0.0
+        half = available / 2.0
+        centered_tip = (
+            (line_x1 + line_x2) / 2.0
+            + ux * max(-half + arrow_len, min(gap, half - arrow_len)),
+            (line_y1 + line_y2) / 2.0
+            + uy * max(-half + arrow_len, min(gap, half - arrow_len)),
+        )
+        first_tip = (
+            line_x1 + ux * max(0.0, min(gap, available)),
+            line_y1 + uy * max(0.0, min(gap, available)),
+        )
+        second_tip = (
+            line_x2 - ux * max(0.0, min(gap, available)),
+            line_y2 - uy * max(0.0, min(gap, available)),
+        )
 
         placement = stacking.arrow_placement
         if placement == "centered":
-            _draw_stacking_arrowhead(
-                stackings_group,
-                (x1, y1),
-                (x2, y2),
-                center,
-                arrow_len,
-                symbol_stroke_width,
-                color,
+            _draw_filled_arrowhead(
+                stackings_group, centered_tip, ux, uy, arrow_len, color
             )
         elif placement == "first-partner":
-            _draw_stacking_arrowhead(
-                stackings_group,
-                (x1, y1),
-                (x2, y2),
-                first_partner,
-                arrow_len,
-                symbol_stroke_width,
-                color,
-            )
+            _draw_filled_arrowhead(stackings_group, first_tip, ux, uy, arrow_len, color)
         elif placement == "second-partner":
-            _draw_stacking_arrowhead(
-                stackings_group,
-                (x1, y1),
-                (x2, y2),
-                second_partner,
-                arrow_len,
-                symbol_stroke_width,
-                color,
+            _draw_filled_arrowhead(
+                stackings_group, second_tip, ux, uy, arrow_len, color
             )
         elif placement == "both-partners":
-            _draw_stacking_arrowhead(
-                stackings_group,
-                (x1, y1),
-                (x2, y2),
-                first_partner,
-                arrow_len,
-                symbol_stroke_width,
-                color,
-            )
-            _draw_stacking_arrowhead(
-                stackings_group,
-                (x1, y1),
-                (x2, y2),
-                second_partner,
-                arrow_len,
-                symbol_stroke_width,
-                color,
+            _draw_filled_arrowhead(stackings_group, first_tip, ux, uy, arrow_len, color)
+            _draw_filled_arrowhead(
+                stackings_group, second_tip, ux, uy, arrow_len, color
             )
         elif placement == "opposing-partners":
-            _draw_stacking_arrowhead(
-                stackings_group,
-                (x1, y1),
-                (x2, y2),
-                first_partner,
-                arrow_len,
-                symbol_stroke_width,
-                color,
-                reverse=True,
+            _draw_filled_arrowhead(
+                stackings_group, first_tip, -ux, -uy, arrow_len, color
             )
-            _draw_stacking_arrowhead(
-                stackings_group,
-                (x1, y1),
-                (x2, y2),
-                second_partner,
-                arrow_len,
-                symbol_stroke_width,
-                color,
+            _draw_filled_arrowhead(
+                stackings_group, second_tip, ux, uy, arrow_len, color
             )
 
     main_group.insert(insert_idx, stackings_group)
 
 
-def add_missing_residue_markers(
+def add_nucleotide_circles(
     main_group: etree._Element,
     seq_group: etree._Element,
     coords: List[Tuple[float, float]],
     missing_res_numbers: List[int],
 ) -> None:
-    if not missing_res_numbers:
-        return
-
     children = list(main_group)
     try:
         insert_idx = children.index(seq_group)
     except ValueError:
         insert_idx = len(children)
 
-    missing_color = color_to_svg(COLORS["-"])
-    markers_group = etree.Element(f"{{{SVG_NS}}}g", attrib={"id": "missing-residues"})
+    missing_set = set(missing_res_numbers)
+    circles_group = etree.Element(f"{{{SVG_NS}}}g", attrib={"id": "nucleotide-circles"})
 
-    for number in missing_res_numbers:
-        idx = number - 1
-        if idx < 0 or idx >= len(coords):
-            continue
-
-        x, y = coords[idx]
+    for i, (x, y) in enumerate(coords):
+        stroke = MISSING_CIRCLE_STROKE if (i + 1) in missing_set else CIRCLE_STROKE
         circle_attrib = {
             "cx": f"{x:.3f}",
             "cy": f"{y:.3f}",
-            "r": "10",
-            "stroke": missing_color,
-            "stroke-width": "1",
-            "fill": "none",
+            "r": f"{NUCLEOTIDE_RADIUS:.3f}",
+            "fill": CIRCLE_FILL,
+            "stroke": stroke,
+            "stroke-width": CIRCLE_STROKE_WIDTH,
         }
-        etree.SubElement(markers_group, f"{{{SVG_NS}}}circle", attrib=circle_attrib)
+        etree.SubElement(circles_group, f"{{{SVG_NS}}}circle", attrib=circle_attrib)
 
-    main_group.insert(insert_idx, markers_group)
+    main_group.insert(insert_idx, circles_group)
 
 
 def split_backbone_at_strand_boundaries(
@@ -1241,14 +1198,14 @@ def postprocess_svg(
     seq_group = find_seq_group(main_group)
 
     if seq_group is not None:
-        center_nucleotide_labels(seq_group, nucleotide_colors)
+        center_nucleotide_labels(seq_group, nucleotide_colors, missing_res_numbers)
 
     remove_rnaplot_base_pair_graphics(main_group)
     split_backbone_at_strand_boundaries(main_group, strands)
 
     if seq_group is not None and coords:
-        add_missing_residue_markers(main_group, seq_group, coords, missing_res_numbers)
         add_interaction_lines(main_group, seq_group, coords, interactions, scale)
+        add_nucleotide_circles(main_group, seq_group, coords, missing_res_numbers)
         add_stacking_markers(main_group, seq_group, coords, stackings, scale)
 
     remove_scripts(root)

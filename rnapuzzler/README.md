@@ -74,7 +74,7 @@ This command will:
     - `.` — unpaired
     - `()` — canonical base pair (drawn by RNApuzzler)
     - `[]`, `{}`, `<>`, `Aa`, `Bb`, `Cc`, `Dd`, `Ee` — non-canonical pairs (drawn as colored lines; no LW symbols because edges are not encoded)
-    - `-` — missing residue (drawn as a red circle marker)
+    - `-` — missing residue (circle outline and letter drawn in red)
 - **`interactions`** (list, optional): Additional non-canonical interactions.
   - `i` (integer, 1-based): 5′ residue position.
   - `j` (integer, 1-based): 3′ residue position.
@@ -88,7 +88,7 @@ This command will:
   - `thickness` (number, optional): Stroke width.
 - **`stacking_arrow_placement`** (string, optional): Position of stacking chevrons.
   - `"centered"` (default), `"first-partner"`, `"second-partner"`, `"both-partners"`, `"opposing-partners"`.
-- **`stacking_arrow_gap`** (number, optional): Distance from the center or partner for chevron placement.
+- **`stacking_arrow_gap`** (number, optional): Inward offset from the default arrowhead position. Positive values move the arrowhead toward the other residue.
 
 ### Leontis–Westhof symbols
 
