@@ -1030,7 +1030,6 @@ def add_interaction_lines(
     seq_group: etree._Element,
     coords: List[Tuple[float, float]],
     interactions: List[PuzzlerInteraction],
-    scale: float = 1.0,
 ) -> None:
     children = list(main_group)
     try:
@@ -1039,7 +1038,7 @@ def add_interaction_lines(
         insert_idx = len(children)
 
     interactions_group = etree.Element(f"{{{SVG_NS}}}g", attrib={"id": "interactions"})
-    symbol_radius = SYMBOL_RADIUS / scale
+    symbol_radius = SYMBOL_RADIUS
 
     placements: List[SymbolPlacement] = []
 
@@ -1056,7 +1055,7 @@ def add_interaction_lines(
         x2_orig, y2_orig = coords[idx_right]
         x1, y1, x2, y2 = shorten_line(x1_orig, y1_orig, x2_orig, y2_orig)
         svg_color = color_to_svg(interaction.color)
-        symbol_stroke_width = str(max(1.0, float(interaction.stroke_width) / scale))
+        symbol_stroke_width = str(max(1.0, float(interaction.stroke_width)))
         line_stroke_width = interaction.stroke_width
 
         if interaction.is_canonical:
@@ -1186,7 +1185,6 @@ def add_stacking_markers(
     seq_group: etree._Element,
     coords: List[Tuple[float, float]],
     stackings: List[PuzzlerStacking],
-    scale: float = 1.0,
 ) -> None:
     if not stackings:
         return
@@ -1220,7 +1218,7 @@ def add_stacking_markers(
 
         color = color_to_svg(stacking.color)
         stroke_width = stacking.stroke_width
-        symbol_stroke_width = f"{max(1.0, float(stroke_width) / scale):.3f}"
+        symbol_stroke_width = f"{max(1.0, float(stroke_width)):.3f}"
 
         line_x1, line_y1, line_x2, line_y2 = shorten_line(x1, y1, x2, y2)
         etree.SubElement(
@@ -1236,7 +1234,7 @@ def add_stacking_markers(
             },
         )
 
-        arrow_len = (SYMBOL_RADIUS * 1.2) / scale
+        arrow_len = SYMBOL_RADIUS * 1.2
         available = math.hypot(line_x2 - line_x1, line_y2 - line_y1)
         if available < arrow_len:
             arrow_len = max(0.0, available)
@@ -1438,7 +1436,6 @@ def postprocess_svg(
     update_css_styles(root)
 
     main_group = find_main_group(root)
-    scale = get_main_group_scale(main_group)
     if main_group is None:
         return etree.tostring(root, encoding="UTF-8", xml_declaration=True).decode(
             "UTF-8"
@@ -1455,9 +1452,9 @@ def postprocess_svg(
     split_backbone_at_strand_boundaries(main_group, strands)
 
     if seq_group is not None and coords:
-        add_interaction_lines(main_group, seq_group, coords, interactions, scale)
+        add_interaction_lines(main_group, seq_group, coords, interactions)
         add_nucleotide_circles(main_group, seq_group, coords, missing_res_numbers)
-        add_stacking_markers(main_group, seq_group, coords, stackings, scale)
+        add_stacking_markers(main_group, seq_group, coords, stackings)
 
     remove_scripts(root)
     remove_background_rectangles(root)
