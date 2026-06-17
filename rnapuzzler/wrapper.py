@@ -103,6 +103,13 @@ STACKING_PLACEMENTS = {
     "opposing-partners",
 }
 
+SYMBOL_OPTIMIZATION_CANDIDATES = 15
+SYMBOL_OVERLAP_WEIGHT = 100.0
+CIRCLE_OVERLAP_WEIGHT = 100.0
+PREFERENCE_WEIGHT = 0.1
+PERPENDICULAR_WEIGHT = 0.5
+SYMBOL_OVERLAP_MARGIN = 1.0
+
 
 class StrandInput(TypedDict):
     name: str
@@ -159,6 +166,30 @@ class PuzzlerStacking:
     stroke_width: str = "2.5"
     arrow_placement: str = "centered"
     arrow_gap: Optional[float] = None
+
+
+@dataclass
+class SymbolPlacement:
+    """A candidate optimizable LW symbol (or rigid pair of symbols) on a bond."""
+
+    style: str  # "single", "pair", "alt"
+    ideal_center: Tuple[float, float]
+    center: Tuple[float, float]
+    radius: float
+    nucleotide_i: int
+    nucleotide_j: int
+    preferred_t: float
+    ux: float
+    uy: float
+    dist: float
+    angle: float
+    edge5: str
+    edge3: str
+    cis: bool
+    color: str
+    stroke_width: str
+    symbol_radius: float
+    pair_offset: float = 0.0
 
 
 def color_to_svg(color_str: str) -> str:
@@ -802,6 +833,195 @@ def _draw_filled_arrowhead(
     )
 
 
+def _symbol_bounding_radius(edge: str, radius: float) -> float:
+    """Return a circular bounding radius for the given LW edge symbol."""
+    if edge == "H":
+        # Square: half the diagonal.
+        side = math.sqrt(math.pi) * radius
+        return side / math.sqrt(2.0)
+    if edge == "S":
+        # Triangle: circumradius.
+        side = 2.0 * math.sqrt(math.pi / math.sqrt(3.0)) * radius
+        return side / math.sqrt(3.0)
+    # Circle (W).
+    return radius
+
+
+def _placement_centers(
+    placement: SymbolPlacement, cx: float, cy: float
+) -> List[Tuple[float, float]]:
+    """Return the center point(s) to use for overlap checks."""
+    if placement.style == "pair":
+        offset = placement.pair_offset
+        ux, uy = placement.ux, placement.uy
+        return [
+            (cx - ux * offset, cy - uy * offset),
+            (cx + ux * offset, cy + uy * offset),
+        ]
+    return [(cx, cy)]
+
+
+def _obstacle_penalty(
+    placement: SymbolPlacement,
+    cx: float,
+    cy: float,
+    coords: List[Tuple[float, float]],
+    fixed: List[SymbolPlacement],
+) -> float:
+    """Compute overlap penalty against nucleotide circles and fixed symbols."""
+    penalty = 0.0
+    radius = placement.radius
+    for scx, scy in _placement_centers(placement, cx, cy):
+        for nx, ny in coords:
+            d = math.hypot(scx - nx, scy - ny)
+            overlap = max(0.0, NUCLEOTIDE_RADIUS + radius - d)
+            penalty += CIRCLE_OVERLAP_WEIGHT * overlap * overlap
+        for other in fixed:
+            for ocx, ocy in _placement_centers(other, other.center[0], other.center[1]):
+                d = math.hypot(scx - ocx, scy - ocy)
+                overlap = max(0.0, radius + other.radius - d)
+                penalty += SYMBOL_OVERLAP_WEIGHT * overlap * overlap
+    return penalty
+
+
+def _candidate_t_values(placement: SymbolPlacement) -> List[float]:
+    """Return candidate positions along the bond, respecting nucleotide circles."""
+    dist = placement.dist
+    if dist == 0.0:
+        return [placement.preferred_t]
+    margin = (NUCLEOTIDE_RADIUS + placement.radius + placement.pair_offset) / dist
+    t_min = min(margin, 0.5)
+    t_max = max(1.0 - margin, 0.5)
+    if t_min > t_max:
+        return [max(t_max, min(placement.preferred_t, t_min))]
+
+    candidates = [
+        t_min + (t_max - t_min) * i / (SYMBOL_OPTIMIZATION_CANDIDATES - 1)
+        for i in range(SYMBOL_OPTIMIZATION_CANDIDATES)
+    ]
+    pref = max(t_min, min(placement.preferred_t, t_max))
+    if all(abs(c - pref) > 1e-6 for c in candidates):
+        candidates.append(pref)
+    return candidates
+
+
+def _optimize_symbol_placements(
+    placements: List[SymbolPlacement],
+    coords: List[Tuple[float, float]],
+) -> None:
+    """Place symbols greedily to minimize overlap while staying near the ideal spot."""
+    if not placements:
+        return
+
+    # Place the most constrained symbols first.
+    scored = []
+    for p in placements:
+        others = [q for q in placements if q is not p]
+        penalty = _obstacle_penalty(
+            p, p.ideal_center[0], p.ideal_center[1], coords, others
+        )
+        scored.append((penalty, p))
+    scored.sort(key=lambda item: -item[0])
+
+    fixed: List[SymbolPlacement] = []
+    for _, placement in scored:
+        x1, y1 = coords[placement.nucleotide_i]
+        x2, y2 = coords[placement.nucleotide_j]
+        ux, uy = placement.ux, placement.uy
+        dist = placement.dist
+        ideal_cx, ideal_cy = placement.ideal_center
+        radius = placement.radius
+
+        # Fast path: the ideal position already has no collisions with fixed
+        # symbols or nucleotide circles.
+        if _obstacle_penalty(placement, ideal_cx, ideal_cy, coords, fixed) < 1e-9:
+            placement.center = (ideal_cx, ideal_cy)
+            fixed.append(placement)
+            continue
+
+        best_penalty = float("inf")
+        best = (ideal_cx, ideal_cy, 0.0)
+
+        def evaluate(t: float, perp: float) -> Tuple[float, Tuple[float, float, float]]:
+            cx = x1 + ux * t * dist - uy * perp
+            cy = y1 + uy * t * dist + ux * perp
+            pen = _obstacle_penalty(placement, cx, cy, coords, fixed)
+            dx = cx - ideal_cx
+            dy = cy - ideal_cy
+            pen += PREFERENCE_WEIGHT * (dx * dx + dy * dy)
+            pen += PERPENDICULAR_WEIGHT * abs(perp)
+            return pen, (cx, cy, perp)
+
+        candidates_t = _candidate_t_values(placement)
+        for t in candidates_t:
+            pen, cand = evaluate(t, 0.0)
+            if pen < best_penalty:
+                best_penalty = pen
+                best = cand
+
+        # If overlap remains, allow a small perpendicular nudge for non-alt
+        # symbols. lw_alt nested symbols should stay on the bond.
+        if best_penalty > 1e-3 and placement.style != "alt":
+            for t in candidates_t:
+                for sign in (-1.0, 1.0):
+                    pen, cand = evaluate(t, sign * radius)
+                    if pen < best_penalty:
+                        best_penalty = pen
+                        best = cand
+
+        placement.center = (best[0], best[1])
+        fixed.append(placement)
+
+
+def _draw_symbol_placement(
+    group: etree._Element,
+    placement: SymbolPlacement,
+) -> None:
+    """Render a symbol placement using the existing drawing helpers."""
+    cx, cy = placement.center
+    angle = placement.angle
+    color = placement.color
+    stroke_width = placement.stroke_width
+    symbol_radius = placement.symbol_radius
+    edge5 = placement.edge5
+    edge3 = placement.edge3
+    cis = placement.cis
+
+    if placement.style == "alt":
+        _draw_lw_alternative(
+            group, cx, cy, angle, edge5, edge3, cis, color, stroke_width, symbol_radius
+        )
+    elif placement.style == "pair":
+        ux, uy = placement.ux, placement.uy
+        offset = placement.pair_offset
+        _draw_single_symbol(
+            group,
+            cx - ux * offset,
+            cy - uy * offset,
+            angle,
+            edge5,
+            symbol_radius,
+            cis,
+            color,
+            stroke_width,
+        )
+        _draw_single_symbol(
+            group,
+            cx + ux * offset,
+            cy + uy * offset,
+            angle,
+            edge3,
+            symbol_radius,
+            cis,
+            color,
+            stroke_width,
+        )
+    else:
+        _draw_single_symbol(
+            group, cx, cy, angle, edge5, symbol_radius, cis, color, stroke_width
+        )
+
+
 def class_tokens(element: etree._Element) -> set[str]:
     return set((element.get("class") or "").split())
 
@@ -831,6 +1051,8 @@ def add_interaction_lines(
 
     interactions_group = etree.Element(f"{{{SVG_NS}}}g", attrib={"id": "interactions"})
     symbol_radius = SYMBOL_RADIUS / scale
+
+    placements: List[SymbolPlacement] = []
 
     for interaction in interactions:
         idx_left = interaction.number_left - 1
@@ -874,6 +1096,14 @@ def add_interaction_lines(
         if edge5 is None or edge3 is None or interaction.style == "simple":
             continue
 
+        effective_radius = (
+            max(
+                _symbol_bounding_radius(edge5, symbol_radius),
+                _symbol_bounding_radius(edge3, symbol_radius),
+            )
+            + SYMBOL_OVERLAP_MARGIN
+        )
+
         dx = x2_orig - x1_orig
         dy = y2_orig - y1_orig
         dist = math.hypot(dx, dy)
@@ -886,46 +1116,78 @@ def add_interaction_lines(
         angle = math.atan2(uy, ux)
 
         if interaction.style == "lw_alt":
-            _draw_lw_alternative(
-                interactions_group,
-                cx,
-                cy,
-                angle,
-                edge5,
-                edge3,
-                interaction.cis,
-                svg_color,
-                symbol_stroke_width,
-                symbol_radius,
+            placements.append(
+                SymbolPlacement(
+                    style="alt",
+                    ideal_center=(cx, cy),
+                    center=(cx, cy),
+                    radius=effective_radius,
+                    nucleotide_i=idx_left,
+                    nucleotide_j=idx_right,
+                    preferred_t=0.5,
+                    ux=ux,
+                    uy=uy,
+                    dist=dist,
+                    angle=angle,
+                    edge5=edge5,
+                    edge3=edge3,
+                    cis=interaction.cis,
+                    color=svg_color,
+                    stroke_width=symbol_stroke_width,
+                    symbol_radius=symbol_radius,
+                )
+            )
+        elif edge5 == edge3:
+            placements.append(
+                SymbolPlacement(
+                    style="single",
+                    ideal_center=(cx, cy),
+                    center=(cx, cy),
+                    radius=effective_radius,
+                    nucleotide_i=idx_left,
+                    nucleotide_j=idx_right,
+                    preferred_t=0.5,
+                    ux=ux,
+                    uy=uy,
+                    dist=dist,
+                    angle=angle,
+                    edge5=edge5,
+                    edge3=edge3,
+                    cis=interaction.cis,
+                    color=svg_color,
+                    stroke_width=symbol_stroke_width,
+                    symbol_radius=symbol_radius,
+                )
             )
         else:
-            if edge5 == edge3:
-                _draw_single_symbol(
-                    interactions_group,
-                    cx,
-                    cy,
-                    angle,
-                    edge5,
-                    symbol_radius,
-                    interaction.cis,
-                    svg_color,
-                    symbol_stroke_width,
+            offset = min(symbol_radius * 1.6, max((dist / 2.0) - symbol_radius, 0.0))
+            placements.append(
+                SymbolPlacement(
+                    style="pair",
+                    ideal_center=(cx, cy),
+                    center=(cx, cy),
+                    radius=effective_radius,
+                    nucleotide_i=idx_left,
+                    nucleotide_j=idx_right,
+                    preferred_t=0.5,
+                    ux=ux,
+                    uy=uy,
+                    dist=dist,
+                    angle=angle,
+                    edge5=edge5,
+                    edge3=edge3,
+                    cis=interaction.cis,
+                    color=svg_color,
+                    stroke_width=symbol_stroke_width,
+                    symbol_radius=symbol_radius,
+                    pair_offset=offset,
                 )
-            else:
-                _draw_lw_separate(
-                    interactions_group,
-                    cx,
-                    cy,
-                    ux,
-                    uy,
-                    edge5,
-                    edge3,
-                    interaction.cis,
-                    svg_color,
-                    symbol_stroke_width,
-                    dist,
-                    symbol_radius,
-                )
+            )
+
+    _optimize_symbol_placements(placements, coords)
+
+    for placement in placements:
+        _draw_symbol_placement(interactions_group, placement)
 
     main_group.insert(insert_idx, interactions_group)
 
