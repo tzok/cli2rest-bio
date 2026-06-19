@@ -1809,6 +1809,11 @@ def main() -> None:
             svgcleaner_cmd = ["svgcleaner", "output.svg", "clean.svg"]
             subprocess.run(svgcleaner_cmd, capture_output=True, text=True, check=True)
 
+            with open("clean.svg", "r", encoding="utf-8") as f:
+                cleaned = f.read()
+            with open("clean.svg", "w", encoding="utf-8") as f:
+                f.write(ensure_svg_viewbox(cleaned))
+
     except Exception as e:
         print(f"Processing failed: {e}", file=sys.stderr)
         sys.exit(1)
