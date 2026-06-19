@@ -113,11 +113,6 @@ STACKING_PLACEMENTS = {
     "opposing-partners",
 }
 
-SYMBOL_OPTIMIZATION_CANDIDATES = 15
-SYMBOL_OVERLAP_WEIGHT = 100.0
-CIRCLE_OVERLAP_WEIGHT = 100.0
-PREFERENCE_WEIGHT = 0.1
-SYMBOL_OVERLAP_MARGIN = 1.0
 DEFAULT_NUM_PERIOD = 10
 NUMBER_TICK_LENGTH = 5.0
 NUMBER_GAP = 4.0
@@ -189,18 +184,12 @@ class PuzzlerStacking:
 
 @dataclass
 class SymbolPlacement:
-    """A candidate optimizable LW symbol (or rigid pair of symbols) on a bond."""
+    """An LW symbol (or rigid pair of symbols) placed on a bond."""
 
     style: str  # "single", "pair", "alt"
-    ideal_center: Tuple[float, float]
     center: Tuple[float, float]
-    radius: float
-    nucleotide_i: int
-    nucleotide_j: int
-    preferred_t: float
     ux: float
     uy: float
-    dist: float
     angle: float
     edge5: str
     edge3: str
@@ -907,134 +896,6 @@ def _draw_filled_arrowhead(
     )
 
 
-def _symbol_bounding_radius(edge: str, radius: float) -> float:
-    """Return a circular bounding radius for the given LW edge symbol."""
-    if edge == "H":
-        # Square: half the diagonal.
-        side = math.sqrt(math.pi) * radius
-        return side / math.sqrt(2.0)
-    if edge == "S":
-        # Triangle: circumradius.
-        side = 2.0 * math.sqrt(math.pi / math.sqrt(3.0)) * radius
-        return side / math.sqrt(3.0)
-    # Circle (W).
-    return radius
-
-
-def _placement_centers(
-    placement: SymbolPlacement, cx: float, cy: float
-) -> List[Tuple[float, float]]:
-    """Return the center point(s) to use for overlap checks."""
-    if placement.style == "pair":
-        offset = placement.pair_offset
-        ux, uy = placement.ux, placement.uy
-        return [
-            (cx - ux * offset, cy - uy * offset),
-            (cx + ux * offset, cy + uy * offset),
-        ]
-    return [(cx, cy)]
-
-
-def _obstacle_penalty(
-    placement: SymbolPlacement,
-    cx: float,
-    cy: float,
-    coords: List[Tuple[float, float]],
-    fixed: List[SymbolPlacement],
-) -> float:
-    """Compute overlap penalty against nucleotide circles and fixed symbols."""
-    penalty = 0.0
-    radius = placement.radius
-    for scx, scy in _placement_centers(placement, cx, cy):
-        for nx, ny in coords:
-            d = math.hypot(scx - nx, scy - ny)
-            overlap = max(0.0, NUCLEOTIDE_RADIUS + radius - d)
-            penalty += CIRCLE_OVERLAP_WEIGHT * overlap * overlap
-        for other in fixed:
-            for ocx, ocy in _placement_centers(other, other.center[0], other.center[1]):
-                d = math.hypot(scx - ocx, scy - ocy)
-                overlap = max(0.0, radius + other.radius - d)
-                penalty += SYMBOL_OVERLAP_WEIGHT * overlap * overlap
-    return penalty
-
-
-def _candidate_t_values(placement: SymbolPlacement) -> List[float]:
-    """Return candidate positions along the bond, respecting nucleotide circles."""
-    dist = placement.dist
-    if dist == 0.0:
-        return [placement.preferred_t]
-    margin = (NUCLEOTIDE_RADIUS + placement.radius + placement.pair_offset) / dist
-    t_min = min(margin, 0.5)
-    t_max = max(1.0 - margin, 0.5)
-    if t_min > t_max:
-        return [max(t_max, min(placement.preferred_t, t_min))]
-
-    candidates = [
-        t_min + (t_max - t_min) * i / (SYMBOL_OPTIMIZATION_CANDIDATES - 1)
-        for i in range(SYMBOL_OPTIMIZATION_CANDIDATES)
-    ]
-    pref = max(t_min, min(placement.preferred_t, t_max))
-    if all(abs(c - pref) > 1e-6 for c in candidates):
-        candidates.append(pref)
-    return candidates
-
-
-def _optimize_symbol_placements(
-    placements: List[SymbolPlacement],
-    coords: List[Tuple[float, float]],
-) -> None:
-    """Place symbols greedily to minimize overlap while staying near the ideal spot."""
-    if not placements:
-        return
-
-    # Place the most constrained symbols first.
-    scored = []
-    for p in placements:
-        others = [q for q in placements if q is not p]
-        penalty = _obstacle_penalty(
-            p, p.ideal_center[0], p.ideal_center[1], coords, others
-        )
-        scored.append((penalty, p))
-    scored.sort(key=lambda item: -item[0])
-
-    fixed: List[SymbolPlacement] = []
-    for _, placement in scored:
-        x1, y1 = coords[placement.nucleotide_i]
-        x2, y2 = coords[placement.nucleotide_j]
-        ux, uy = placement.ux, placement.uy
-        dist = placement.dist
-        ideal_cx, ideal_cy = placement.ideal_center
-
-        # Fast path: the ideal position already has no collisions with fixed
-        # symbols or nucleotide circles.
-        if _obstacle_penalty(placement, ideal_cx, ideal_cy, coords, fixed) < 1e-9:
-            placement.center = (ideal_cx, ideal_cy)
-            fixed.append(placement)
-            continue
-
-        best_penalty = float("inf")
-        best = (ideal_cx, ideal_cy)
-
-        def evaluate(t: float) -> Tuple[float, Tuple[float, float]]:
-            cx = x1 + ux * t * dist
-            cy = y1 + uy * t * dist
-            pen = _obstacle_penalty(placement, cx, cy, coords, fixed)
-            dx = cx - ideal_cx
-            dy = cy - ideal_cy
-            pen += PREFERENCE_WEIGHT * (dx * dx + dy * dy)
-            return pen, (cx, cy)
-
-        candidates_t = _candidate_t_values(placement)
-        for t in candidates_t:
-            pen, cand = evaluate(t)
-            if pen < best_penalty:
-                best_penalty = pen
-                best = cand
-
-        placement.center = best
-        fixed.append(placement)
-
-
 def _draw_symbol_placement(
     group: etree._Element,
     placement: SymbolPlacement,
@@ -1228,14 +1089,6 @@ def add_interaction_lines(
         if edge5 is None or edge3 is None or interaction.style == "simple":
             continue
 
-        effective_radius = (
-            max(
-                _symbol_bounding_radius(edge5, symbol_radius),
-                _symbol_bounding_radius(edge3, symbol_radius),
-            )
-            + SYMBOL_OVERLAP_MARGIN
-        )
-
         dx = x2_orig - x1_orig
         dy = y2_orig - y1_orig
         dist = math.hypot(dx, dy)
@@ -1251,15 +1104,9 @@ def add_interaction_lines(
             placements.append(
                 SymbolPlacement(
                     style="alt",
-                    ideal_center=(cx, cy),
                     center=(cx, cy),
-                    radius=effective_radius,
-                    nucleotide_i=idx_left,
-                    nucleotide_j=idx_right,
-                    preferred_t=0.5,
                     ux=ux,
                     uy=uy,
-                    dist=dist,
                     angle=angle,
                     edge5=edge5,
                     edge3=edge3,
@@ -1273,15 +1120,9 @@ def add_interaction_lines(
             placements.append(
                 SymbolPlacement(
                     style="single",
-                    ideal_center=(cx, cy),
                     center=(cx, cy),
-                    radius=effective_radius,
-                    nucleotide_i=idx_left,
-                    nucleotide_j=idx_right,
-                    preferred_t=0.5,
                     ux=ux,
                     uy=uy,
-                    dist=dist,
                     angle=angle,
                     edge5=edge5,
                     edge3=edge3,
@@ -1296,15 +1137,9 @@ def add_interaction_lines(
             placements.append(
                 SymbolPlacement(
                     style="pair",
-                    ideal_center=(cx, cy),
                     center=(cx, cy),
-                    radius=effective_radius,
-                    nucleotide_i=idx_left,
-                    nucleotide_j=idx_right,
-                    preferred_t=0.5,
                     ux=ux,
                     uy=uy,
-                    dist=dist,
                     angle=angle,
                     edge5=edge5,
                     edge3=edge3,
@@ -1315,8 +1150,6 @@ def add_interaction_lines(
                     pair_offset=offset,
                 )
             )
-
-    _optimize_symbol_placements(placements, coords)
 
     for placement in placements:
         _draw_symbol_placement(interactions_group, placement)
