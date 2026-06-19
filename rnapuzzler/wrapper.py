@@ -329,40 +329,67 @@ def load_and_validate_json(file_path: str) -> PuzzlerInput:
 def preprocess(
     data: PuzzlerInput,
 ) -> Tuple[
-    str, str, List[PuzzlerInteraction], List[PuzzlerStacking], List[int], Set[int]
+    str,
+    str,
+    List[PuzzlerInteraction],
+    List[PuzzlerStacking],
+    List[int],
+    Set[int],
+    List[int],
 ]:
     orig_lengths = [len(s["sequence"]) for s in data["strands"]]
 
-    # --- build phantom-included sequence and structure ---
+    # --- detect strands without canonical base pairs (no '(' or ')') ---
+    needs_wrap = [
+        i
+        for i, strand in enumerate(data["strands"])
+        if "(" not in strand["structure"] and ")" not in strand["structure"]
+    ]
+
+    # --- build sequence/structure with wrapping + inter-strand phantoms ---
     seq_parts: List[str] = []
     struct_parts: List[str] = []
     phantom_positions: Set[int] = set()
-    cumulative = 0
+    orig_to_new: List[int] = [0] * sum(orig_lengths)
+    new_pos = 1
+    orig_pos = 1
+
     for i, (seq, struct) in enumerate(
         zip(
             (s["sequence"] for s in data["strands"]),
             (s["structure"] for s in data["strands"]),
         )
     ):
-        seq_parts.append(seq)
-        struct_parts.append(struct)
-        cumulative += len(seq)
+        wrap = i in needs_wrap
+        if wrap:
+            seq_parts.append("N")
+            struct_parts.append("(")
+            phantom_positions.add(new_pos)
+            new_pos += 1
+
+        for ch in seq:
+            orig_to_new[orig_pos - 1] = new_pos
+            seq_parts.append(ch)
+            orig_pos += 1
+            new_pos += 1
+
+        for ch in struct:
+            struct_parts.append(ch)
+
+        if wrap:
+            seq_parts.append("N")
+            struct_parts.append(")")
+            phantom_positions.add(new_pos)
+            new_pos += 1
+
         if i < len(orig_lengths) - 1:
-            phantom_positions.add(cumulative + 1)  # 1‑based in new numbering
+            phantom_positions.add(new_pos)
             seq_parts.append("N")
             struct_parts.append(".")
+            new_pos += 1
+
     sequence = "".join(seq_parts)
     structure_raw = "".join(struct_parts)
-
-    # --- position shifter (original → phantom‑included) ---
-    def shift_pos(p: int) -> int:
-        result = p
-        cumsum = 0
-        for length in orig_lengths[:-1]:
-            cumsum += length
-            if p > cumsum:
-                result += 1
-        return result
 
     bp_style = (data.get("bp_style") or "lw").lower()
     if bp_style not in BP_STYLES:
@@ -379,10 +406,10 @@ def preprocess(
         symbol = SYMBOLS.get(char)
         if symbol is None:
             raise ValueError(f"Unknown structure symbol '{char}' at position {i + 1}")
-        # Phantom positions are always unpaired – skip them during parsing.
-        if (i + 1) in phantom_positions:
-            modified_structure_chars.append(".")
-            continue
+        # Inter-strand phantoms have '.' structure; wrapping phantoms have
+        # '(' or ')' which must survive into modified_structure so that
+        # RNAplot draws a circle.  The phantom base pair is filtered from
+        # canonical_interactions below.
         if symbol.allowed:
             modified_structure_chars.append(char)
             if char == "(":
@@ -392,10 +419,15 @@ def preprocess(
                     raise ValueError(
                         f"Unmatched closing symbol '{char}' at position {i + 1}"
                     )
+                left = residue_stack[symbol.sibling].pop()  # type: ignore[arg-type]
+                right = i + 1
+                # Skip phantom base pairs (both ends are phantoms)
+                if left in phantom_positions and right in phantom_positions:
+                    continue
                 canonical_interactions.append(
                     PuzzlerInteraction(
-                        residue_stack[symbol.sibling].pop(),  # type: ignore[arg-type]
-                        i + 1,
+                        left,
+                        right,
                         "rgb(0,0,0)",
                         is_canonical=True,
                     )
@@ -436,8 +468,8 @@ def preprocess(
                 style = "simple"
             custom_interactions.append(
                 PuzzlerInteraction(
-                    shift_pos(interaction["i"]),
-                    shift_pos(interaction["j"]),
+                    orig_to_new[interaction["i"] - 1],
+                    orig_to_new[interaction["j"] - 1],
                     color,
                     lw=lw,
                     edge5=parsed[1] if parsed else None,
@@ -458,8 +490,8 @@ def preprocess(
             thickness = str(stacking.get("thickness", "2.5"))
             stackings.append(
                 PuzzlerStacking(
-                    shift_pos(stacking["i"]),
-                    shift_pos(stacking["j"]),
+                    orig_to_new[stacking["i"] - 1],
+                    orig_to_new[stacking["j"] - 1],
                     color,
                     stroke_width=thickness,
                     arrow_placement=placement,
@@ -490,6 +522,7 @@ def preprocess(
         stackings,
         missing_res_numbers,
         phantom_positions,
+        orig_to_new,
     )
 
 
@@ -977,6 +1010,7 @@ def draw_backbone(
     coords: List[Tuple[float, float]],
     strands: List[StrandInput],
     phantom_positions: Set[int],
+    orig_to_new: List[int],
     color: str = CANONICAL_BP_COLOR,
     stroke_width: str = "1.5",
 ) -> None:
@@ -991,12 +1025,11 @@ def draw_backbone(
 
     phantom_set = phantom_positions or set()
     cumulative = 0
-    for strand_idx, strand in enumerate(strands):
+    for strand in strands:
         length = len(strand["sequence"])
-        global_start = cumulative + strand_idx + 1
         for intra in range(1, length):
-            pos_a = global_start + intra - 1
-            pos_b = global_start + intra
+            pos_a = orig_to_new[cumulative + intra - 1]
+            pos_b = orig_to_new[cumulative + intra]
             if pos_a in phantom_set or pos_b in phantom_set:
                 continue
             idx_a = pos_a - 1
@@ -1325,6 +1358,7 @@ def postprocess_svg(
     stackings: List[PuzzlerStacking],
     missing_res_numbers: List[int],
     phantom_positions: Set[int],
+    orig_to_new: List[int],
     nucleotide_colors: Optional[Dict[str, str]] = None,
     num_period: int = DEFAULT_NUM_PERIOD,
     labels: Optional[Dict[str, str]] = None,
@@ -1354,7 +1388,9 @@ def postprocess_svg(
 
     if seq_group is not None and coords:
         if draw_backbone_flag:
-            draw_backbone(main_group, seq_group, coords, strands, phantom_positions)
+            draw_backbone(
+                main_group, seq_group, coords, strands, phantom_positions, orig_to_new
+            )
         add_interaction_lines(main_group, seq_group, coords, interactions)
         add_nucleotide_circles(
             main_group, seq_group, coords, missing_res_numbers, phantom_positions
@@ -1366,6 +1402,7 @@ def postprocess_svg(
             coords,
             strands,
             num_period,
+            orig_to_new,
             labels,
             phantom_positions,
         )
@@ -1496,17 +1533,17 @@ def _add_nucleotide_numbers(
     coords: List[Tuple[float, float]],
     strands: List[StrandInput],
     num_period: int,
+    orig_to_new: List[int],
     labels: Optional[Dict[str, str]] = None,
     phantom_positions: Optional[Set[int]] = None,
 ) -> None:
     """Draw tick lines and number labels at selected nucleotide positions."""
     numbers = _number_positions(strands, num_period, labels)
     phantom_set = phantom_positions or set()
-    # Shift positions for inserted phantom residues and filter them out.
+    # Map original positions to phantom-included positions.
     shifted = []
     for p, lbl in numbers:
-        shift_amount = sum(1 for q in phantom_set if q <= p)
-        pp = p + shift_amount
+        pp = orig_to_new[p - 1]
         if pp not in phantom_set:
             shifted.append((pp, lbl))
     numbers = shifted
@@ -1606,6 +1643,7 @@ def main() -> None:
             stackings,
             missing_res_numbers,
             phantom_positions,
+            orig_to_new,
         ) = preprocess(data)
         svg_content = generate_rnapuzzler_svg(sequence, structure)
         nucleotide_colors = data.get("nucleotide_colors")
@@ -1618,6 +1656,7 @@ def main() -> None:
             stackings,
             missing_res_numbers,
             phantom_positions,
+            orig_to_new,
             nucleotide_colors,
             num_period=num_period,
             labels=labels,
