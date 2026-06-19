@@ -157,6 +157,8 @@ class PuzzlerInput(TypedDict):
     bp_style: Optional[str]
     stacking_arrow_placement: Optional[str]
     stacking_arrow_gap: Optional[float]
+    draw_backbone: Optional[bool]
+    debug: Optional[bool]
 
 
 @dataclass(frozen=True)
@@ -323,6 +325,14 @@ def load_and_validate_json(file_path: str) -> PuzzlerInput:
                 f"Invalid stacking_arrow_placement '{data['stacking_arrow_placement']}'. "
                 f"Allowed: {sorted(STACKING_PLACEMENTS)}."
             )
+
+    if data.get("draw_backbone") is not None and not isinstance(
+        data["draw_backbone"], bool
+    ):
+        raise ValueError("'draw_backbone' must be a boolean.")
+
+    if data.get("debug") is not None and not isinstance(data["debug"], bool):
+        raise ValueError("'debug' must be a boolean.")
 
     return data
 
@@ -619,8 +629,6 @@ def update_css_styles(root: etree._Element) -> None:
 
     css = style_elem.text or ""
     css = css.replace("stroke: grey", f"stroke: {CANONICAL_BP_COLOR}")
-    # Make backbone polylines slightly thicker
-    css = css.replace("fill: none;", "fill: none; stroke-width: 2;")
     css = css.replace("stroke: red", "stroke: black")
     style_elem.text = css
 
@@ -1090,6 +1098,77 @@ def remove_rnaplot_base_pair_graphics(main_group: etree._Element) -> None:
             parent.remove(element)
 
 
+def remove_backbone(main_group: etree._Element) -> None:
+    """Remove all backbone elements (polyline/path/line) from the SVG."""
+    to_remove = []
+    for element in main_group.iterdescendants():
+        if "backbone" in class_tokens(element):
+            to_remove.append(element)
+    for element in to_remove:
+        parent = element.getparent()
+        if parent is not None:
+            parent.remove(element)
+
+
+def draw_backbone(
+    main_group: etree._Element,
+    seq_group: etree._Element,
+    coords: List[Tuple[float, float]],
+    strands: List[StrandInput],
+    phantom_positions: Set[int],
+    color: str = CANONICAL_BP_COLOR,
+    stroke_width: str = "1.5",
+) -> None:
+    """Draw backbone line segments within each strand."""
+    children = list(main_group)
+    try:
+        insert_idx = children.index(seq_group)
+    except ValueError:
+        insert_idx = len(children)
+
+    backbone_group = etree.Element(f"{{{SVG_NS}}}g", attrib={"id": "backbone"})
+
+    phantom_set = phantom_positions or set()
+    cumulative = 0
+    for strand_idx, strand in enumerate(strands):
+        length = len(strand["sequence"])
+        global_start = cumulative + strand_idx + 1
+        for intra in range(1, length):
+            pos_a = global_start + intra - 1
+            pos_b = global_start + intra
+            if pos_a in phantom_set or pos_b in phantom_set:
+                continue
+            idx_a = pos_a - 1
+            idx_b = pos_b - 1
+            if idx_a < 0 or idx_a >= len(coords):
+                continue
+            if idx_b < 0 or idx_b >= len(coords):
+                continue
+            x1, y1, x2, y2 = shorten_line(
+                coords[idx_a][0],
+                coords[idx_a][1],
+                coords[idx_b][0],
+                coords[idx_b][1],
+            )
+            etree.SubElement(
+                backbone_group,
+                f"{{{SVG_NS}}}line",
+                attrib={
+                    "x1": f"{x1:.3f}",
+                    "y1": f"{y1:.3f}",
+                    "x2": f"{x2:.3f}",
+                    "y2": f"{y2:.3f}",
+                    "stroke": color,
+                    "stroke-width": stroke_width,
+                    "fill": "none",
+                },
+            )
+        cumulative += length
+
+    if len(backbone_group) > 0:
+        main_group.insert(insert_idx, backbone_group)
+
+
 def add_interaction_lines(
     main_group: etree._Element,
     seq_group: etree._Element,
@@ -1384,92 +1463,6 @@ def add_nucleotide_circles(
     main_group.insert(insert_idx, circles_group)
 
 
-def split_backbone_at_strand_boundaries(
-    main_group: etree._Element, strands: List[StrandInput]
-) -> None:
-    if len(strands) <= 1:
-        return
-
-    boundaries: set = set()
-    cumulative = 0
-    for strand in strands[:-1]:
-        cumulative += len(strand["sequence"])
-        boundaries.add(cumulative)
-
-    polylines = []
-    for child in list(main_group):
-        tag = child.tag
-        if tag == f"{{{SVG_NS}}}polyline" or tag == "polyline":
-            cls = child.get("class", "")
-            if "backbone" in cls:
-                polylines.append(child)
-
-    for polyline in polylines:
-        points_str = polyline.get("points", "").strip()
-        if not points_str:
-            continue
-
-        point_pairs = points_str.split("\n")
-        points: List[Tuple[float, float]] = []
-        for pair in point_pairs:
-            pair = pair.strip()
-            if not pair:
-                continue
-            parts = pair.split(",")
-            if len(parts) == 2:
-                try:
-                    points.append((float(parts[0]), float(parts[1])))
-                except ValueError:
-                    continue
-
-        if not points:
-            continue
-
-        polyline_id = polyline.get("id", "outline")
-        if polyline_id == "outline":
-            start_idx = 0
-        else:
-            try:
-                n = int(polyline_id.replace("outline", ""))
-                start_idx = n - 2
-            except ValueError:
-                start_idx = 0
-
-        split_indices: List[int] = []
-        for local_idx in range(len(points)):
-            global_idx = start_idx + local_idx
-            if global_idx in boundaries:
-                split_indices.append(local_idx)
-
-        if not split_indices:
-            continue
-
-        parent_idx = list(main_group).index(polyline)
-        main_group.remove(polyline)
-
-        segments: List[List[Tuple[float, float]]] = []
-        prev = 0
-        for split_idx in split_indices:
-            if prev <= split_idx:
-                segments.append(points[prev:split_idx])
-            prev = split_idx
-        segments.append(points[prev:])
-
-        for seg_i, segment in enumerate(reversed(segments)):
-            if len(segment) < 2:
-                continue
-            pts = "\n".join(f"      {x:.3f},{y:.3f}" for x, y in segment)
-            new_poly = etree.Element(
-                f"{{{SVG_NS}}}polyline",
-                attrib={
-                    "class": "backbone",
-                    "id": f"{polyline_id}_s{len(segments) - 1 - seg_i}",
-                    "points": f"\n{pts}\n    ",
-                },
-            )
-            main_group.insert(parent_idx, new_poly)
-
-
 def remove_scripts(root: etree._Element) -> None:
     for script in root.findall(f".//{{{SVG_NS}}}script"):
         parent = script.getparent()
@@ -1492,107 +1485,6 @@ def remove_background_rectangles(root: etree._Element) -> None:
             parent.remove(rect)
 
 
-def _path_vertices(d: str) -> List[Tuple[float, float]]:
-    """Extract vertex coordinates from an SVG path-d string.
-
-    All numeric pairs are returned regardless of command type —
-    control points and on‑curve points are treated identically.
-    """
-    nums = re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", d)
-    vertices = []
-    for i in range(0, len(nums) - 1, 2):
-        try:
-            vertices.append((float(nums[i]), float(nums[i + 1])))
-        except (ValueError, IndexError):
-            pass
-    return vertices
-
-
-def _remove_phantom_elements(
-    root: etree._Element,
-    coords: List[Tuple[float, float]],
-    phantom_positions: Set[int],
-) -> None:
-    """Remove ``<line>`` elements that specifically connect to a phantom.
-
-    Only ``<line>`` elements are handled here — their ``x1/y1/x2/y2``
-    attributes are always absolute, so the neighbour‑matching test is
-    reliable.  ``<path>`` elements are left to the strand‑break mask,
-    which hides them per‑pixel instead of removing the whole element.
-    """
-    if not phantom_positions:
-        return
-
-    tolerance = NUCLEOTIDE_RADIUS * 1.1
-
-    phantom_neighbours: Dict[int, List[Tuple[float, float]]] = {}
-    for p in sorted(phantom_positions):
-        if p <= 1 or p > len(coords):
-            continue
-        phantom_neighbours[p] = []
-        if p - 1 >= 1 and p - 1 <= len(coords):
-            phantom_neighbours[p].append(coords[p - 2])
-        if p + 1 <= len(coords):
-            phantom_neighbours[p].append(coords[p])
-    if not phantom_neighbours:
-        return
-
-    phantom_centres = {p: coords[p - 1] for p in phantom_neighbours}
-
-    line_tags = {f"{{{SVG_NS}}}line", "line"}
-    to_remove: List[etree._Element] = []
-
-    for elem in root.iterdescendants():
-        if elem.tag not in line_tags:
-            continue
-
-        x1 = _opt_float(elem.get("x1"))
-        y1 = _opt_float(elem.get("y1"))
-        x2 = _opt_float(elem.get("x2"))
-        y2 = _opt_float(elem.get("y2"))
-        if x1 is None:
-            continue
-        for p, neighbours in phantom_neighbours.items():
-            cx, cy = phantom_centres[p]
-            d1p = math.hypot(x1 - cx, y1 - cy)
-            d2p = math.hypot(x2 - cx, y2 - cy)
-            if d1p > tolerance and d2p > tolerance:
-                continue
-            other = (x1, y1) if d1p > d2p else (x2, y2)
-            for nx, ny in neighbours:
-                if math.hypot(other[0] - nx, other[1] - ny) < tolerance:
-                    to_remove.append(elem)
-                    break
-            else:
-                continue
-            break
-
-    for elem in to_remove:
-        parent = elem.getparent()
-        if parent is not None:
-            parent.remove(elem)
-
-
-def _opt_float(s: Optional[str]) -> Optional[float]:
-    if s is None:
-        return None
-    try:
-        return float(s)
-    except ValueError:
-        return None
-
-
-def _parse_points(s: str) -> List[Tuple[float, float]]:
-    nums = re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", s)
-    points = []
-    for i in range(0, len(nums) - 1, 2):
-        try:
-            points.append((float(nums[i]), float(nums[i + 1])))
-        except (ValueError, IndexError):
-            pass
-    return points
-
-
 def postprocess_svg(
     svg_content: str,
     strands: List[StrandInput],
@@ -1603,6 +1495,7 @@ def postprocess_svg(
     nucleotide_colors: Optional[Dict[str, str]] = None,
     num_period: int = DEFAULT_NUM_PERIOD,
     labels: Optional[Dict[str, str]] = None,
+    draw_backbone_flag: bool = False,
 ) -> str:
     root = etree.fromstring(svg_content.encode("utf-8"))
 
@@ -1624,10 +1517,11 @@ def postprocess_svg(
         )
 
     remove_rnaplot_base_pair_graphics(main_group)
-    split_backbone_at_strand_boundaries(main_group, strands)
-    _remove_phantom_elements(root, coords, phantom_positions)
+    remove_backbone(main_group)
 
     if seq_group is not None and coords:
+        if draw_backbone_flag:
+            draw_backbone(main_group, seq_group, coords, strands, phantom_positions)
         add_interaction_lines(main_group, seq_group, coords, interactions)
         add_nucleotide_circles(
             main_group, seq_group, coords, missing_res_numbers, phantom_positions
@@ -1645,161 +1539,8 @@ def postprocess_svg(
 
     remove_scripts(root)
     remove_background_rectangles(root)
-    _apply_strand_break_mask(root, main_group, coords, strands, phantom_positions)
 
     return etree.tostring(root, encoding="UTF-8", xml_declaration=True).decode("UTF-8")
-
-
-def _strand_boundaries(strands: List[StrandInput]) -> List[int]:
-    """Return 1-based residue indices at the end of each strand except the last."""
-    boundaries = []
-    cumulative = 0
-    for strand in strands[:-1]:
-        cumulative += len(strand["sequence"])
-        boundaries.append(cumulative)
-    return boundaries
-
-
-def _boundary_capsule_points(
-    p1: Tuple[float, float], p2: Tuple[float, float], width: float
-) -> List[Tuple[float, float]]:
-    """Return a quadrilateral covering the segment p1-p2 with the given width."""
-    dx = p2[0] - p1[0]
-    dy = p2[1] - p1[1]
-    length = math.hypot(dx, dy)
-    if length == 0.0:
-        return [p1, p1, p1, p1]
-    ux = dx / length
-    uy = dy / length
-    nx = -uy
-    ny = ux
-    half = width / 2.0
-    return [
-        (p1[0] + nx * half, p1[1] + ny * half),
-        (p2[0] + nx * half, p2[1] + ny * half),
-        (p2[0] - nx * half, p2[1] - ny * half),
-        (p1[0] - nx * half, p1[1] - ny * half),
-    ]
-
-
-def _apply_strand_break_mask(
-    root: etree._Element,
-    main_group: etree._Element,
-    coords: List[Tuple[float, float]],
-    strands: List[StrandInput],
-    phantom_positions: Optional[Set[int]] = None,
-) -> None:
-    """Mask out backbone segments that connect consecutive strands."""
-    boundaries = _strand_boundaries(strands)
-    if not boundaries or not coords:
-        return
-
-    # --- find backbone elements to mask ---
-    # Only mask elements with class="backbone" — NOT interaction lines
-    # (which may share the same stroke colour).
-    backbone_tags = {
-        f"{{{SVG_NS}}}path",
-        f"{{{SVG_NS}}}polyline",
-        f"{{{SVG_NS}}}line",
-        "path",
-        "polyline",
-        "line",
-    }
-    candidates: List[etree._Element] = []
-    for elem in main_group.iterdescendants():
-        if elem.tag not in backbone_tags:
-            continue
-        if "backbone" in (elem.get("class") or ""):
-            candidates.append(elem)
-
-    if not candidates:
-        return
-
-    # --- build mask ---
-    defs = root.find(f".//{{{SVG_NS}}}defs")
-    if defs is None:
-        defs = etree.Element(f"{{{SVG_NS}}}defs")
-        root.insert(0, defs)
-
-    mask = etree.Element(
-        f"{{{SVG_NS}}}mask",
-        attrib={
-            "id": "strand-break-mask",
-            "maskUnits": "userSpaceOnUse",
-        },
-    )
-    etree.SubElement(
-        mask,
-        f"{{{SVG_NS}}}rect",
-        attrib={
-            "x": "-10000",
-            "y": "-10000",
-            "width": "30000",
-            "height": "30000",
-            "fill": "white",
-        },
-    )
-
-    # Build mask capsules.  For non-phantom cases a single capsule
-    # between the two neighbouring residues suffices.
-    # For phantom cases the backbone goes prev → phantom → next, so we
-    # need two capsules that follow the actual path through the phantom.
-    capsule_width = 6.0
-    if phantom_positions:
-        for b in boundaries:
-            phantom_p = b + 1  # 1-based phantom position
-            if phantom_p > len(coords) or b > len(coords):
-                continue
-            prev_coord = coords[b - 1]
-            phantom_coord = coords[phantom_p - 1]
-            next_coord = coords[phantom_p] if phantom_p < len(coords) else None
-            # Capsule 1: prev → phantom
-            pts1 = _boundary_capsule_points(prev_coord, phantom_coord, capsule_width)
-            etree.SubElement(
-                mask,
-                f"{{{SVG_NS}}}polygon",
-                attrib={"points": _points_to_svg(pts1), "fill": "black"},
-            )
-            # Capsule 2: phantom → next
-            if next_coord is not None:
-                pts2 = _boundary_capsule_points(
-                    phantom_coord, next_coord, capsule_width
-                )
-                etree.SubElement(
-                    mask,
-                    f"{{{SVG_NS}}}polygon",
-                    attrib={"points": _points_to_svg(pts2), "fill": "black"},
-                )
-            # Circle at phantom to catch triangle artifacts
-            etree.SubElement(
-                mask,
-                f"{{{SVG_NS}}}circle",
-                attrib={
-                    "cx": f"{phantom_coord[0]:.3f}",
-                    "cy": f"{phantom_coord[1]:.3f}",
-                    "r": f"{capsule_width / 2.0:.3f}",
-                    "fill": "black",
-                },
-            )
-    else:
-        for b_a, b_b in [(b, b + 1) for b in boundaries]:
-            if b_a < 1 or b_a >= len(coords):
-                continue
-            if b_b < 1 or b_b >= len(coords):
-                continue
-            points = _boundary_capsule_points(
-                coords[b_a - 1], coords[b_b - 1], capsule_width
-            )
-            etree.SubElement(
-                mask,
-                f"{{{SVG_NS}}}polygon",
-                attrib={"points": _points_to_svg(points), "fill": "black"},
-            )
-
-    defs.append(mask)
-
-    for elem in candidates:
-        elem.set("mask", "url(#strand-break-mask)")
 
 
 def _outward_directions(
@@ -2047,14 +1788,26 @@ def main() -> None:
             nucleotide_colors,
             num_period=num_period,
             labels=labels,
+            draw_backbone_flag=data.get("draw_backbone", False),
         )
 
         with open("raw.svg", "w", encoding="utf-8") as f:
             f.write(postprocessed)
 
-        # Bypass inkscape + svgcleaner for debugging — output raw.svg as clean.svg
-        with open("clean.svg", "w", encoding="utf-8") as f:
-            f.write(ensure_svg_viewbox(postprocessed))
+        if data.get("debug", False):
+            with open("clean.svg", "w", encoding="utf-8") as f:
+                f.write(ensure_svg_viewbox(postprocessed))
+        else:
+            inkscape_cmd = [
+                "inkscape",
+                "raw.svg",
+                "--export-area-drawing",
+                "--export-filename=output.svg",
+            ]
+            subprocess.run(inkscape_cmd, capture_output=True, text=True, check=True)
+
+            svgcleaner_cmd = ["svgcleaner", "output.svg", "clean.svg"]
+            subprocess.run(svgcleaner_cmd, capture_output=True, text=True, check=True)
 
     except Exception as e:
         print(f"Processing failed: {e}", file=sys.stderr)

@@ -89,6 +89,8 @@ This command will:
 - **`stacking_arrow_placement`** (string, optional): Position of stacking chevrons.
   - `"centered"` (default), `"first-partner"`, `"second-partner"`, `"both-partners"`, `"opposing-partners"`.
 - **`stacking_arrow_gap`** (number, optional): Inward offset from the default arrowhead position. Positive values move the arrowhead toward the other residue.
+- **`draw_backbone`** (boolean, optional, default `false`): When `true`, draw backbone line segments connecting consecutive nucleotides within each strand. The original RNApuzzler backbone is always removed; this flag controls whether a clean per-strand backbone is redrawn in its place.
+- **`debug`** (boolean, optional, default `false`): When `true`, bypass inkscape cropping and svgcleaner optimization — write the post-processed SVG directly as `clean.svg`. Useful for debugging SVG structure.
 
 ### Leontis–Westhof symbols
 
