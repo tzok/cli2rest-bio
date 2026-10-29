@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import re
 import subprocess
 from typing import Any, Dict, List, Optional, TypedDict
 
@@ -17,6 +18,66 @@ class RchieData(TypedDict):
     title: Optional[str]  # New optional title field
     top: List[Interaction]
     bottom: List[Interaction]
+
+
+# R only accepts colour names, "#rgb"/"#rrggbb" and "#rrggbbaa". CSS functional
+# notation such as "rgba(0, 0, 0, 0.5)" makes plot.xy() abort with
+# "invalid color name", so it is translated here.
+_RGB_PATTERN = re.compile(
+    r"^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*"
+    r"(?:,\s*([0-9]*\.?[0-9]+)\s*)?\)$",
+    re.IGNORECASE,
+)
+_HEX_PATTERN = re.compile(
+    r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+)
+_COLOR_NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9 ]*$")
+
+
+def to_r_color(color: str) -> str:
+    """Translates a colour into a specification R can parse.
+
+    Accepts R colour names, "#rgb"/"#rrggbb"/"#rrggbbaa" and CSS "rgb()"/"rgba()",
+    which are converted to 8-digit hex. Anything else raises a ValueError naming the
+    offending value, so a client mistake surfaces as a readable message instead of an
+    R traceback.
+    """
+    value = color.strip()
+
+    rgb_match = _RGB_PATTERN.match(value)
+    if rgb_match:
+        red, green, blue = (int(rgb_match.group(index)) for index in (1, 2, 3))
+        if any(channel > 255 for channel in (red, green, blue)):
+            raise ValueError(
+                f"Invalid rgb() colour {color!r}: channels must be between 0 and 255."
+            )
+        alpha_text = rgb_match.group(4)
+        alpha = 255
+        if alpha_text is not None:
+            alpha_float = float(alpha_text)
+            if not 0.0 <= alpha_float <= 1.0:
+                raise ValueError(
+                    f"Invalid rgba() colour {color!r}: alpha must be between 0 and 1."
+                )
+            alpha = round(alpha_float * 255)
+        if alpha == 255:
+            return f"#{red:02x}{green:02x}{blue:02x}"
+        return f"#{red:02x}{green:02x}{blue:02x}{alpha:02x}"
+
+    if value.startswith("#"):
+        if not _HEX_PATTERN.match(value):
+            raise ValueError(
+                f"Invalid colour {color!r}: hex colours must be #rgb, #rgba, #rrggbb or #rrggbbaa."
+            )
+        return value
+
+    if _COLOR_NAME_PATTERN.match(value):
+        return value
+
+    raise ValueError(
+        f"Invalid colour {color!r}: use an R colour name, #rgb, #rrggbb, #rrggbbaa "
+        "or CSS rgb()/rgba()."
+    )
 
 
 def load_json_data(file_path: str) -> RchieData:
@@ -57,8 +118,20 @@ def load_json_data(file_path: str) -> RchieData:
                 # Optional: Validate color if specific constraints exist, e.g., must be string if not None.
                 # if color_val is not None and not isinstance(color_val, str):
                 #     raise ValueError(
-                #         f"Interaction {interaction_list_name}[{idx}] has invalid 'color' value: {color_val}. Must be a string or null."
+                #         f"Invalid interaction at {interaction_list_name}[{idx}], color must be a string or null."
                 #     )
+
+                # Normalise to a spec R can parse. Done here so that equivalent colours
+                # (e.g. "rgba(0,0,0,0.5)" and "#00000080") collapse to one value group and
+                # any bad colour is reported before the R script runs.
+                color_val = interaction.get("color")
+                if color_val is not None:
+                    if not isinstance(color_val, str):
+                        raise ValueError(
+                            f"Interaction {interaction_list_name}[{idx}] has invalid 'color' value: "
+                            f"{color_val!r}. Must be a string or null."
+                        )
+                    interaction["color"] = to_r_color(color_val)
         return data
     except FileNotFoundError:
         print(f"Error: File not found at {file_path}")
@@ -178,11 +251,12 @@ def process_rchie_data(rchie_data: RchieData) -> None:
     # Assign colors in R based on integer ‘value’
     for color, idx in color_to_int_map.items():
         if color is not None:
+            r_color = to_r_color(color)
             r_script_lines.append(
-                f'helix1$col[which(helix1$value=={idx})] <- "{color}"'
+                f'helix1$col[which(helix1$value=={idx})] <- "{r_color}"'
             )
             r_script_lines.append(
-                f'helix2$col[which(helix2$value=={idx})] <- "{color}"'
+                f'helix2$col[which(helix2$value=={idx})] <- "{r_color}"'
             )
     r_script_lines.extend(
         [

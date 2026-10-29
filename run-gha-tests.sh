@@ -328,6 +328,28 @@ EOF
   assert_completed metadata.json
   assert_files_exist rchie-example-clean.svg
 
+  # Coloured arcs, including translucent ones. CSS rgba() used to be written
+  # straight into the R script, where plot.xy() rejects it with
+  # "invalid color name" and the whole drawing fails.
+  cat > colored.json <<'EOF'
+{
+  "sequence": "GCAUUGC",
+  "top": [
+    {"i": 1, "j": 7, "color": "#808080"},
+    {"i": 2, "j": 6, "color": "rgba(0, 0, 0, 0.5)"}
+  ],
+  "bottom": [
+    {"i": 3, "j": 5, "color": "#00000080"},
+    {"i": 4, "j": 4, "color": "rgb(255, 0, 0)"}
+  ]
+}
+EOF
+
+  uv run --project "$ROOT_DIR" --locked cli2rest-bio --api-url "http://localhost:${host_port}" --output-metadata metadata.json \
+    "$ROOT_DIR/src/cli2rest_bio/configs/rchie/config.yaml" colored.json
+  assert_completed metadata.json
+  assert_files_exist rchie-colored-clean.svg
+
   echo "Test passed: rchie" >&2
   stop_and_rm "$cname"
 }

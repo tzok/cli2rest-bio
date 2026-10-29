@@ -73,7 +73,7 @@ The `wrapper.py` script inside the container expects a single JSON file as input
 Each interaction object within the `top` and `bottom` lists must have:
 -   `i` (integer, required): The **1-based** starting position of the interaction.
 -   `j` (integer, required): The **1-based** ending position of the interaction.
--   `color` (string or null, optional): The color for the arc representing this interaction. This can be a color name (e.g., "red", "blue") or a hex code (e.g., "#FF00FF"). If `null` or omitted, a default color assignment strategy is used by the R script.
+-   `color` (string or null, optional): The color for the arc representing this interaction. This can be a color name (e.g., "red", "blue"), a hex code (`#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`), or CSS `rgb()`/`rgba()` notation, which is converted to 8-digit hex. If `null` or omitted, a default color assignment strategy is used by the R script.
 
 **Important:** The `i` and `j` indices for interactions **MUST BE 1-BASED**. The R4RNA package, which is used for plotting, expects 1-based indexing for sequence positions. Providing 0-based or invalid indices will lead to errors.
 
