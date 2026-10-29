@@ -1,0 +1,41 @@
+name: Test CLI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep in sync with `requires-python` in pyproject.toml.
+        python-version: [ '3.11', '3.12', '3.13', '3.14', '3.15' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          ignore-nothing-to-cache: true
+
+      - name: Sync locked environment
+        run: uv sync --locked
+
+      - name: Smoke-test the CLI
+        run: |
+          uv run --locked cli2rest-bio --help > /dev/null
+          uv run --locked python -c "import importlib.resources; importlib.resources.files('cli2rest_bio.configs')"

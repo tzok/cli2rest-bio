@@ -5,8 +5,14 @@ Summary: CLI to REST API wrapper for bioinformatics tools
 Author-email: Tomasz Zok <tomasz.zok@cs.put.poznan.pl>
 License-Expression: MIT
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10
+Requires-Python: <3.16,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: docker>=7.2.0

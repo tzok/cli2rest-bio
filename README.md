@@ -206,7 +206,7 @@ docker pull ghcr.io/tzok/cli2rest-barnaba:latest
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11–3.15
 - Docker
 - `uv`
 
