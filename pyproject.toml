@@ -13,10 +13,16 @@ authors = [
 license = "MIT" # Use SPDX identifier directly
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     # License classifier is deprecated, use the 'license' field above
     "Operating System :: OS Independent",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11,<3.16"
 dependencies = [
     "docker>=7.2.0",
     "pyyaml>=6.0.1",
@@ -28,6 +34,10 @@ cli2rest-bio = "cli2rest_bio:main"
 
 [tool.uv]
 required-version = ">=0.8.0"
+# PyYAML 6.0.3 ships no cp315 wheels, so it is built from source on Python 3.15.
+# Cython 3.3.0 crashes while compiling it there, so pin a working compiler.
+[tool.uv.extra-build-dependencies]
+pyyaml = ["cython<3.3; python_full_version >= '3.15'"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
