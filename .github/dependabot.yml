@@ -81,9 +81,9 @@ updates:
           - "*"
         # Auto-merging handled by dependabot-auto-merge.yml workflow
 
-  # Enable version updates for uv-managed Python packages in fr3d latest
+  # Enable version updates for uv-managed Python packages in fr3d
   - package-ecosystem: "uv"
-    directory: "/fr3d/uv/latest/"
+    directory: "/fr3d/"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -95,26 +95,7 @@ updates:
       - "python"
       - "fr3d"
     groups:
-      fr3d-latest-python-packages:
-        patterns:
-          - "*"
-        # Auto-merging handled by dependabot-auto-merge.yml workflow
-
-  # Enable version updates for uv-managed Python packages in fr3d master
-  - package-ecosystem: "uv"
-    directory: "/fr3d/uv/master/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    assignees:
-      - "tzok"
-    labels:
-      - "dependencies"
-      - "python"
-      - "fr3d"
-    groups:
-      fr3d-master-python-packages:
+      fr3d-python-packages:
         patterns:
           - "*"
         # Auto-merging handled by dependabot-auto-merge.yml workflow

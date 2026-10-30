@@ -1,7 +1,6 @@
 ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
-FROM ${CLI2REST_BASE} AS builder
 
-ARG FR3D_CHANNEL=latest
+FROM ${CLI2REST_BASE} AS builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
@@ -9,11 +8,12 @@ RUN apt-get update \
 
 WORKDIR /opt/fr3d
 
-COPY uv ./uv
+COPY pyproject.toml uv.lock ./
 
-WORKDIR /opt/fr3d/uv/${FR3D_CHANNEL}
-
-RUN UV_PROJECT_ENVIRONMENT=/opt/fr3d/.venv uv sync --locked --no-dev
+# --no-managed-python forces uv to use the base image interpreter instead of
+# downloading one. A downloaded interpreter lives outside the paths copied to
+# the final stage, which would leave the venv's shebangs dangling.
+RUN UV_PROJECT_ENVIRONMENT=/opt/fr3d/.venv uv sync --locked --no-dev --no-managed-python
 
 FROM ${CLI2REST_BASE}
 
