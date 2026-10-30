@@ -540,14 +540,7 @@ EOF
 
 run_tool_test "reduce" "$TAG" test_reduce
 run_tool_test "maxit" "$TAG" test_maxit
-
-# fr3d workflow tests both branches; mirror that unless user pinned a tag.
-if [[ "$TAG" == "latest" ]]; then
-  run_tool_test "fr3d-latest" "latest" test_fr3d
-  run_tool_test "fr3d-master" "master" test_fr3d
-else
-  run_tool_test "fr3d" "$TAG" test_fr3d
-fi
+run_tool_test "fr3d" "$TAG" test_fr3d
 
 run_tool_test "inkscape" "$TAG" test_inkscape
 run_tool_test "mc-annotate" "$TAG" test_mc_annotate

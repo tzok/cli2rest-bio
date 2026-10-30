@@ -26,7 +26,7 @@ jobs:
           python-version: '3.13'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: '3.13'
           enable-cache: true
@@ -72,7 +72,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          BASE_IMAGE="ghcr.io/tzok/cli2rest:latest"
+          BASE_IMAGE="ghcr.io/tzok/cli2rest:py3.13"
           BASE_JSON=$(skopeo inspect --override-os linux --override-arch amd64 "docker://$BASE_IMAGE")
           BASE_DIGEST=$(echo "$BASE_JSON" | jq -r '.Digest')
           BASE_REF="${BASE_IMAGE%@*}@${BASE_DIGEST}"
@@ -167,16 +167,34 @@ jobs:
       - name: Test Docker image
         if: github.event_name == 'pull_request' || steps.decide.outputs.should_build == 'true'
         run: |
+          set -euo pipefail
+
+          CONTAINER="cli2rest-barnaba-test"
+          # Remove any stale container left by a previous failed run, then make
+          # sure we always clean up, even when an assertion below fails.
+          docker rm -f "$CONTAINER" 2>/dev/null || true
+          trap 'docker rm -f "$CONTAINER" 2>/dev/null || true' EXIT
+
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             TEST_IMAGE="ghcr.io/tzok/cli2rest-barnaba:test"
           else
             TEST_IMAGE="ghcr.io/tzok/cli2rest-barnaba:${{ steps.decide.outputs.build_tag }}"
           fi
 
-          docker run --name cli2rest-barnaba-test -d -p 8000 "$TEST_IMAGE"
+          docker run --name "$CONTAINER" -d -p 8000 "$TEST_IMAGE"
           sleep 5
-          HOST_PORT=$(docker port cli2rest-barnaba-test 8000 | cut -d: -f2)
+          HOST_PORT=$(docker port "$CONTAINER" 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
+
+          # Guard against builder-stage regressions: the venv interpreter must
+          # resolve inside the final image, otherwise every console script
+          # fails with "400: Command not found" at request time. barnaba exits
+          # non-zero on --help (argparse needs a subcommand), so assert on its
+          # output instead of its status.
+          docker exec "$CONTAINER" /opt/barnaba/.venv/bin/python -V
+          docker exec "$CONTAINER" /opt/barnaba/.venv/bin/python -c 'import barnaba, mdtraj, numpy, scipy'
+          HELP_OUT="$(docker exec "$CONTAINER" /opt/barnaba/.venv/bin/barnaba --help 2>&1 || true)"
+          grep -q "ANNOTATE" <<<"$HELP_OUT"
 
           uv sync --locked
           curl -L -o 1ehz.pdb https://files.rcsb.org/download/1EHZ.pdb
@@ -197,8 +215,6 @@ jobs:
           done
 
           echo "Test passed: All output files created."
-
-          docker rm -f cli2rest-barnaba-test
 
       - name: Promote latest to current upstream
         if: github.event_name != 'pull_request' && steps.decide.outputs.should_build != 'true' && steps.decide.outputs.should_promote == 'true'

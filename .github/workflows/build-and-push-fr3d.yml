@@ -15,10 +15,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        branch: [latest, master]
 
     steps:
       - name: Checkout repository
@@ -27,12 +23,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          python-version: '3.13'
+          python-version: '3.14'
           enable-cache: true
           ignore-nothing-to-cache: true
 
@@ -50,25 +46,21 @@ jobs:
         id: get_version
         run: |
           PINNED_COMMIT=$(python - <<'PY'
-          import os
           import tomllib
           from pathlib import Path
 
-          branch = os.environ["FR3D_BRANCH"]
-          data = tomllib.loads(Path(f"fr3d/uv/{branch}/pyproject.toml").read_text())
+          data = tomllib.loads(Path("fr3d/pyproject.toml").read_text())
           print(data["tool"]["uv"]["sources"]["fr3d"]["rev"])
           PY
           )
           SHORT_COMMIT=${PINNED_COMMIT:0:7}
-          UPSTREAM="${{ matrix.branch }}-${SHORT_COMMIT}"
+          BRANCH_NAME="main"
 
-          echo "Pinned FR3D commit for ${{ matrix.branch }}: $PINNED_COMMIT"
+          echo "Pinned FR3D commit: $PINNED_COMMIT"
           echo "commit_hash=$PINNED_COMMIT" >> "$GITHUB_OUTPUT"
           echo "short_commit=$SHORT_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "upstream=$UPSTREAM" >> "$GITHUB_OUTPUT"
+          echo "upstream=${BRANCH_NAME}-${SHORT_COMMIT}" >> "$GITHUB_OUTPUT"
         shell: bash
-        env:
-          FR3D_BRANCH: ${{ matrix.branch }}
 
       - name: Install registry tooling
         run: |
@@ -93,8 +85,8 @@ jobs:
       - name: Compute upstream version
         id: get_upstream
         run: |
-          LOCK_HASH=$(sha256sum fr3d/uv/${{ matrix.branch }}/uv.lock | cut -c1-12)
-          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_${{ matrix.branch }}-${{ steps.get_version.outputs.short_commit }}_${LOCK_HASH}" >> "$GITHUB_OUTPUT"
+          LOCK_HASH=$(sha256sum fr3d/uv.lock | cut -c1-12)
+          echo "upstream=base-${{ steps.get_base.outputs.digest_short }}_${{ steps.get_version.outputs.upstream }}_${LOCK_HASH}" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Decide whether to rebuild
@@ -106,7 +98,7 @@ jobs:
           IMAGE="ghcr.io/tzok/cli2rest-fr3d"
           UPSTREAM="${{ steps.get_upstream.outputs.upstream }}"
           VERSION_REF="$IMAGE:$UPSTREAM"
-          FLOATING_REF="$IMAGE:${{ matrix.branch }}"
+          FLOATING_REF="$IMAGE:latest"
 
           STALE_SECONDS=$((7*24*60*60))
           NOW_EPOCH="$(date -u +%s)"
@@ -159,7 +151,6 @@ jobs:
           context: ./fr3d
           build-args: |
             CLI2REST_BASE=${{ steps.get_base.outputs.ref }}
-            FR3D_CHANNEL=${{ matrix.branch }}
           pull: true
           push: ${{ github.event_name != 'pull_request' }}
           load: true
@@ -167,25 +158,39 @@ jobs:
             org.cli2rest.upstream=${{ steps.get_upstream.outputs.upstream }}
             org.opencontainers.image.revision=${{ github.sha }}
           tags: |
-            ${{ github.event_name == 'pull_request' && format('ghcr.io/tzok/cli2rest-fr3d:test-{0}', matrix.branch) || '' }}
+            ${{ github.event_name == 'pull_request' && 'ghcr.io/tzok/cli2rest-fr3d:test' || '' }}
             ${{ github.event_name != 'pull_request' && format('ghcr.io/tzok/cli2rest-fr3d:{0}', steps.decide.outputs.build_tag) || '' }}
-            ${{ github.event_name != 'pull_request' && format('ghcr.io/tzok/cli2rest-fr3d:{0}', matrix.branch) || '' }}
-          cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-fr3d:${{ matrix.branch }}
+            ${{ github.event_name != 'pull_request' && 'ghcr.io/tzok/cli2rest-fr3d:latest' || '' }}
+          cache-from: type=gha,ref=ghcr.io/tzok/cli2rest-fr3d:latest
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
         if: github.event_name == 'pull_request' || steps.decide.outputs.should_build == 'true'
         run: |
+          set -euo pipefail
+
+          CONTAINER="cli2rest-fr3d-test"
+          # Remove any stale container left by a previous failed run, then make
+          # sure we always clean up, even when an assertion below fails.
+          docker rm -f "$CONTAINER" 2>/dev/null || true
+          trap 'docker rm -f "$CONTAINER" 2>/dev/null || true' EXIT
+
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            TEST_IMAGE="ghcr.io/tzok/cli2rest-fr3d:test-${{ matrix.branch }}"
+            TEST_IMAGE="ghcr.io/tzok/cli2rest-fr3d:test"
           else
             TEST_IMAGE="ghcr.io/tzok/cli2rest-fr3d:${{ steps.decide.outputs.build_tag }}"
           fi
 
-          docker run --name cli2rest-fr3d-test-${{ matrix.branch }} -d -p 8000 "$TEST_IMAGE"
+          docker run --name "$CONTAINER" -d -p 8000 "$TEST_IMAGE"
           sleep 5
-          HOST_PORT=$(docker port cli2rest-fr3d-test-${{ matrix.branch }} 8000 | cut -d: -f2)
+          HOST_PORT=$(docker port "$CONTAINER" 8000 | cut -d: -f2)
           curl -s "http://localhost:$HOST_PORT/health" | grep '"status":"healthy"'
+
+          # Guard against builder-stage regressions: the venv interpreter must
+          # resolve inside the final image, otherwise wrapper.py fails with
+          # "400: Command not found" at request time.
+          docker exec "$CONTAINER" /opt/fr3d/.venv/bin/python -V
+          docker exec "$CONTAINER" /opt/fr3d/.venv/bin/python -c 'import fr3d, numpy, scipy, Bio'
 
           uv sync --locked
           curl -L -o 1ehz.cif https://files.rcsb.org/download/1EHZ.cif
@@ -207,13 +212,11 @@ jobs:
 
           echo "Test passed: All output files created."
 
-          docker rm -f cli2rest-fr3d-test-${{ matrix.branch }}
-
       - name: Promote floating tag to current upstream
         if: github.event_name != 'pull_request' && steps.decide.outputs.should_build != 'true' && steps.decide.outputs.should_promote == 'true'
         run: |
           IMAGE="ghcr.io/tzok/cli2rest-fr3d"
           UPSTREAM="${{ steps.decide.outputs.upstream }}"
 
-          echo "Promoting $IMAGE:$UPSTREAM -> $IMAGE:${{ matrix.branch }}"
-          docker buildx imagetools create -t "$IMAGE:${{ matrix.branch }}" "$IMAGE:$UPSTREAM"
+          echo "Promoting $IMAGE:$UPSTREAM -> $IMAGE:latest"
+          docker buildx imagetools create -t "$IMAGE:latest" "$IMAGE:$UPSTREAM"

@@ -47,14 +47,14 @@ uv run --locked cli2rest-bio --help
 
 ### FR3D
 
-- Latest channel manifest: `fr3d/uv/latest/pyproject.toml`
-- Latest channel lockfile: `fr3d/uv/latest/uv.lock`
-- Master channel manifest: `fr3d/uv/master/pyproject.toml`
-- Master channel lockfile: `fr3d/uv/master/uv.lock`
+- Manifest: `fr3d/pyproject.toml`
+- Lockfile: `fr3d/uv.lock`
 - Source: `https://github.com/BGSU-RNA/fr3d-python`
-- Update mode: manual Git SHA pinning per channel
+- Update mode: manual Git SHA pinning
 
-Both FR3D channels are preserved to match the existing published image behavior.
+Upstream collapsed its `latest` and `master` branches into a single `main`
+branch (the old branches survive only as archive tags). The image is therefore
+built from one pinned commit, published as `:latest`.
 
 ## Manual SHA pinning
 
@@ -77,20 +77,15 @@ uv lock --directory barnaba
 
 ### FR3D update procedure
 
-Repeat these steps for each channel independently.
-
-1. Choose the target upstream commit in `BGSU-RNA/fr3d-python`.
-2. Update `tool.uv.sources.fr3d.rev` in one of:
-   - `fr3d/uv/latest/pyproject.toml`
-   - `fr3d/uv/master/pyproject.toml`
-3. Refresh the matching lockfile:
+1. Choose the target upstream commit on `BGSU-RNA/fr3d-python`'s `main` branch.
+2. Update `tool.uv.sources.fr3d.rev` in `fr3d/pyproject.toml`.
+3. Refresh the lockfile:
 
 ```bash
-uv lock --directory fr3d/uv/latest
-uv lock --directory fr3d/uv/master
+uv lock --directory fr3d
 ```
 
-4. Rebuild and test the image for the updated channel.
+4. Rebuild and test the image.
 
 ## Local validation
 
@@ -100,7 +95,6 @@ Useful commands after changing a pin:
 docker build -t cli2rest-rnapolis ./rnapolis
 docker build -t cli2rest-barnaba ./barnaba
 docker build -t cli2rest-fr3d ./fr3d
-docker build --build-arg FR3D_CHANNEL=master -t cli2rest-fr3d-master ./fr3d
 ```
 
 Then run the existing integration workflows or local CLI checks against the built image.

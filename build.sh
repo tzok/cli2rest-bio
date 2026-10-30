@@ -5,6 +5,8 @@ set -e
 
 echo "Pulling latest base image..."
 docker pull ghcr.io/tzok/cli2rest:latest
+# barnaba pins the Python 3.13 base (barnaba needs NumPy 1.x) rather than :latest
+docker pull ghcr.io/tzok/cli2rest:py3.13
 
 echo "Building CLI2REST container images..."
 

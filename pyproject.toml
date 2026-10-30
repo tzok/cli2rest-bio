@@ -33,7 +33,11 @@ dependencies = [
 cli2rest-bio = "cli2rest_bio:main"
 
 [tool.uv]
-required-version = ">=0.8.0"
+# Single source of truth for the uv version: astral-sh/setup-uv reads this
+# when a workflow does not pass a version input, and uv itself refuses to run
+# with an older release. The floor must not exceed the uv version provided by
+# the devenv shell.
+required-version = ">=0.13.4"
 # PyYAML 6.0.3 ships no cp315 wheels, so it is built from source on Python 3.15.
 # Cython 3.3.0 crashes while compiling it there, so pin a working compiler.
 [tool.uv.extra-build-dependencies]
