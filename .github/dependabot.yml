@@ -7,6 +7,13 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "build"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "uv"
     directory: "/rnapolis"
     schedule:
@@ -14,6 +21,13 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "build"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "uv"
     directory: "/barnaba"
     schedule:
@@ -21,6 +35,13 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "build"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "uv"
     directory: "/fr3d"
     schedule:
@@ -28,6 +49,13 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "build"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "docker"
     directory: "/barnaba"
     schedule:
@@ -35,6 +63,13 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "build"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "docker"
     directory: "/fr3d"
     schedule:
@@ -42,6 +77,13 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "build"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "docker"
     directory: "/maxit"
     schedule:
@@ -49,6 +91,13 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "build"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "docker"
     directory: "/reduce"
     schedule:
@@ -56,6 +105,13 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "build"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "docker"
     directory: "/rnaview"
     schedule:
@@ -63,6 +119,13 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "build"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "docker"
     directory: "/rnapolis"
     schedule:
@@ -70,6 +133,13 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "build"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -77,3 +147,9 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "build"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
