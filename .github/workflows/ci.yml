@@ -1,12 +1,22 @@
-name: Test CLI
+name: CI
 
 on:
-  pull_request:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
+    name: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,3 +49,16 @@ jobs:
         run: |
           uv run --locked cli2rest-bio --help > /dev/null
           uv run --locked python -c "import importlib.resources; importlib.resources.files('cli2rest_bio.configs')"
+
+  build:
+    name: build
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check prerequisite results
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "A prerequisite job failed."
+            exit 1
+          fi

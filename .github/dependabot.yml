@@ -1,162 +1,79 @@
-# Dependabot configuration file
 version: 2
 updates:
-  # Enable version updates for GitHub Actions
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
+  - package-ecosystem: "uv"
+    directory: "/rnapolis"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
+  - package-ecosystem: "uv"
+    directory: "/barnaba"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
+  - package-ecosystem: "uv"
+    directory: "/fr3d"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
+  - package-ecosystem: "docker"
+    directory: "/barnaba"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
+  - package-ecosystem: "docker"
+    directory: "/fr3d"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
+  - package-ecosystem: "docker"
+    directory: "/maxit"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
+  - package-ecosystem: "docker"
+    directory: "/reduce"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
+  - package-ecosystem: "docker"
+    directory: "/rnaview"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
+  - package-ecosystem: "docker"
+    directory: "/rnapolis"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
   - package-ecosystem: "github-actions"
-    # Look for GitHub Actions workflow files in the `.github/workflows` directory
-    directory: "/"
-    # Check for updates once a week (on Monday)
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    # Limit the number of open pull requests for GitHub Actions dependencies
-    open-pull-requests-limit: 10
-    # Assign pull requests to repository owners
-    assignees:
-      - "tzok"
-    # Add labels to pull requests
-    labels:
-      - "dependencies"
-      - "github-actions"
-    # Auto-merge non-major updates
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-        # Auto-merging handled by dependabot-auto-merge.yml workflow
-
-  # Enable version updates for the root uv-managed Python project
-  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
     open-pull-requests-limit: 10
-    assignees:
-      - "tzok"
-    labels:
-      - "dependencies"
-      - "python"
-    groups:
-      python-packages:
-        patterns:
-          - "*"
-        # Auto-merging handled by dependabot-auto-merge.yml workflow
-
-  # Enable version updates for uv-managed Python packages in rnapolis
-  - package-ecosystem: "uv"
-    directory: "/rnapolis/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5 # Limit specifically for this tool
-    assignees:
-      - "tzok"
-    labels:
-      - "dependencies"
-      - "python"
-      - "rnapolis"
-    groups:
-      rnapolis-python-packages:
-        patterns:
-          - "*"
-        # Auto-merging handled by dependabot-auto-merge.yml workflow
-
-  # Enable version updates for uv-managed Python packages in barnaba
-  - package-ecosystem: "uv"
-    directory: "/barnaba/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    assignees:
-      - "tzok"
-    labels:
-      - "dependencies"
-      - "python"
-      - "barnaba"
-    groups:
-      barnaba-python-packages:
-        patterns:
-          - "*"
-        # Auto-merging handled by dependabot-auto-merge.yml workflow
-
-  # Enable version updates for uv-managed Python packages in fr3d
-  - package-ecosystem: "uv"
-    directory: "/fr3d/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    assignees:
-      - "tzok"
-    labels:
-      - "dependencies"
-      - "python"
-      - "fr3d"
-    groups:
-      fr3d-python-packages:
-        patterns:
-          - "*"
-        # Auto-merging handled by dependabot-auto-merge.yml workflow
-
-  # Enable version updates for Docker images in each tool directory
-  - package-ecosystem: "docker"
-    directory: "/fr3d/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 10
-    assignees:
-      - "tzok"
-    labels:
-      - "dependencies"
-      - "docker"
-      
-  - package-ecosystem: "docker"
-    directory: "/maxit/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 10
-    assignees:
-      - "tzok"
-    labels:
-      - "dependencies"
-      - "docker"
-      
-  - package-ecosystem: "docker"
-    directory: "/reduce/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 10
-    assignees:
-      - "tzok"
-    labels:
-      - "dependencies"
-      - "docker"
-      
-  - package-ecosystem: "docker"
-    directory: "/rnaview/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 10
-    assignees:
-      - "tzok"
-    labels:
-      - "dependencies"
-      - "docker"
-      
-  - package-ecosystem: "docker"
-    directory: "/rnapolis/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 10
-    assignees:
-      - "tzok"
-    labels:
-      - "dependencies"
-      - "docker"
+    commit-message:
+      prefix: "build"
