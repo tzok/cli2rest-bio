@@ -59,7 +59,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "rnapolis", specifier = "==0.16.18" }]
+requires-dist = [{ name = "rnapolis", specifier = "==0.17.0" }]
 
 [[package]]
 name = "colorama"
@@ -438,7 +438,7 @@ wheels = [
 
 [[package]]
 name = "rnapolis"
-version = "0.16.18"
+version = "0.17.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "appdirs" },
@@ -457,9 +457,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "viennarna" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/02/7f/cb609d17e7d32c4cba2e21d30c4bd650752a324e868bd135ea15cff8264f/rnapolis-0.16.18.tar.gz", hash = "sha256:c7a7e973a5d98c7b3f13815406121585696431a4cd762d01042072b76e83705b", size = 735174, upload-time = "2026-10-30T09:08:32.28Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0b/85/2b702c5458f50fba85f45d319eb4d0031acac2ac5d97c994ffbeb140f15e/rnapolis-0.17.0.tar.gz", hash = "sha256:59335a2f7151ad06040d909387bdc22426a0e8986c0cdb4590eb60baa91ad273", size = 736600, upload-time = "2026-11-06T16:17:24.997Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/50/99/a6dc0bbc83a03fdc6d66f2cfa8081bf368b8655192164ea2e29ae5fb0a43/rnapolis-0.16.18-py3-none-any.whl", hash = "sha256:2454761c2b4e0707536495af792df131b7d933f7fc4f5b7c063a5f8edec4d04a", size = 750680, upload-time = "2026-10-30T09:08:30.692Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/17/38dcf4c0868473945655912394dcbc10f56eefea91b93bf233f744632014/rnapolis-0.17.0-py3-none-any.whl", hash = "sha256:f4ad2ebbe76506d088c451347c490d89744ba49f8241607ed1a06ac6e28fcbf7", size = 753477, upload-time = "2026-11-06T16:17:23.583Z" },
 ]
 
 [[package]]
