@@ -2,7 +2,9 @@ ARG CLI2REST_BASE=ghcr.io/tzok/cli2rest:latest
 
 FROM ${CLI2REST_BASE}
 
-ARG VIENNARNA_VERSION=2.7.2-1
+# CI and build.sh auto-detect the current version; the default below is only a
+# fallback for plain `docker build` invocations.
+ARG VIENNARNA_VERSION=2.8.0-1
 ARG VIENNARNA_DEBIAN_RELEASE=debian_13
 
 ADD https://www.tbi.univie.ac.at/RNA/download/debian/${VIENNARNA_DEBIAN_RELEASE}/viennarna_${VIENNARNA_VERSION}_amd64.deb /tmp/viennarna.deb

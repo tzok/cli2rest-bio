@@ -47,6 +47,19 @@ for dir in */; do
 		fi
 		echo "Using RNAView version: $RNAVIEW_VERSION"
 		build_args="--build-arg RNAVIEW_VERSION=$RNAVIEW_VERSION"
+	elif [ "$dir" == "rnapuzzler" ]; then
+		echo "Fetching latest ViennaRNA version..."
+		VIENNARNA_VERSION=$(curl -fsSL --retry 3 https://www.tbi.univie.ac.at/RNA/install.html \
+			| grep -oE '/RNA/download/debian/debian_13/viennarna_[[:alnum:].+~:_-]+_amd64[.]deb' \
+			| sed -E 's#.*/viennarna_([[:alnum:].+~:_-]+)_amd64[.]deb#\1#' \
+			| sort -V \
+			| tail -n1)
+		if [ -z "$VIENNARNA_VERSION" ]; then
+			echo "Error: Could not determine the latest ViennaRNA version."
+			exit 1
+		fi
+		echo "Using ViennaRNA version: $VIENNARNA_VERSION"
+		build_args="--build-arg VIENNARNA_VERSION=$VIENNARNA_VERSION"
 	fi
 
 	# Enter directory and build the image
