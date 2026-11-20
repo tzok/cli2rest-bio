@@ -75,8 +75,28 @@ jobs:
       - name: Set ViennaRNA version
         id: get_viennarna
         run: |
-          echo "version=2.7.2-1" >> "$GITHUB_OUTPUT"
-          echo "debian_release=debian_13" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+
+          # Debian release of the cli2rest base image (Debian 13 trixie).
+          DEBIAN_RELEASE=debian_13
+          INSTALL_PAGE="https://www.tbi.univie.ac.at/RNA/install.html"
+
+          # The install page links the current packages, e.g.
+          # https://www.tbi.univie.ac.at/RNA/download/debian/debian_13/viennarna_2.8.0-1_amd64.deb
+          VERSION="$(curl -fsSL --retry 3 --retry-delay 5 "$INSTALL_PAGE" \
+            | grep -oE "/RNA/download/debian/${DEBIAN_RELEASE}/viennarna_[[:alnum:].+~:_-]+_amd64[.]deb" \
+            | sed -E 's#.*/viennarna_([[:alnum:].+~:_-]+)_amd64[.]deb#\1#' \
+            | sort -V \
+            | tail -n1 || true)"
+
+          if [[ -z "$VERSION" ]]; then
+            echo "Could not determine the latest ViennaRNA version from $INSTALL_PAGE" >&2
+            exit 1
+          fi
+
+          echo "Latest ViennaRNA version for ${DEBIAN_RELEASE}: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "debian_release=$DEBIAN_RELEASE" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Compute upstream version
