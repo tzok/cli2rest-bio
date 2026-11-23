@@ -1,0 +1,34 @@
+--- src/include/rnabp.h.orig	2026-11-23 11:47:01.519171137 +0100
++++ src/include/rnabp.h	2026-11-23 11:47:01.545815088 +0100
+@@ -480,6 +480,13 @@
+       fprintf(fp, "%s", lwbp);
+ //      fprintf(fp, "%s-",self[v4].name[index]);
+ }
++int onz_valid_edge_name(char* bp){
++      if(bp[0] == '\0') return 0;
++      if(bp[0] == 'W' || bp[0] == 'w' || bp[0] == '+') return 1;
++      if(bp[0] == 'H' || bp[0] == 'h' || bp[0] == 'g') return 1;
++      if(bp[0] == 'S' || bp[0] == 's' || bp[0] == 'z') return 1;
++      return 0;
++}
+ void comp_onz(FILE* fp, struct nucbp* self, struct graph* g, int comp_size, int* array)
+ {
+       if( comp_size != 4 ){    /* Exception Handling */ 
+@@ -491,8 +498,17 @@
+       int v1adj2 = graph_edge_at(g, v1, 1);
+       char bp1[5];
+       char bp2[5];
++      if(g->deg[v1] < 2 || self[v1].numbp < 2){
++	    /* Degenerate Q4: fewer than two usable edges; skip ONZ class. */
++	    return;
++      }
+       strcpy(bp1, self[v1].name[0]);
+       strcpy(bp2, self[v1].name[1]);
++      if(!onz_valid_edge_name(bp1) || !onz_valid_edge_name(bp2)){
++	    /* Non-base-pair overlap edges (ASTK/ADJA/CLOS/CROS) yield names
++	     * that are not edge names; skip ONZ class instead of aborting. */
++	    return;
++      }
+ //      string bpname1 = self[v1].name[0];
+ //      string bpname2 = self[v1].name[1];
+ 

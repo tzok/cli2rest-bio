@@ -25,8 +25,10 @@ ADD https://github.com/computational-biology/bpnet.git#${BPNET_REF} /bpnet-src
 
 # Copy and apply the patch
 COPY 001-change-chain-separatator.patch /bpnet-src/
+COPY 002-onz-non-bp-guard.patch /bpnet-src/
 RUN cd /bpnet-src \
  && patch -p0 < 001-change-chain-separatator.patch \
+ && patch -p0 < 002-onz-non-bp-guard.patch \
  && cd src \
  && make clean \
  && make
